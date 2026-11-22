@@ -860,7 +860,7 @@ export default function App() {
       {/* Fixed Bottom Navigation Bar */}
       <nav
         aria-label="Navegação principal"
-        className="app-bottom-nav fixed right-0 bottom-0 left-0 z-40 border-t border-[#1f2620] bg-[#0d100e]/95 backdrop-blur-md"
+        className="app-bottom-nav fixed right-0 bottom-0 left-0 z-40 border-t border-[#1f2620] bg-[#0d100e]"
       >
         <div className="app-bottom-nav-row mx-auto grid max-w-6xl grid-cols-3 items-center">
           {(

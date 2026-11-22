@@ -62,10 +62,32 @@ body,
 
 .app-bottom-nav {
   padding-bottom: var(--app-safe-bottom);
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  transition: transform 160ms ease, opacity 160ms ease;
 }
 
 .app-bottom-nav-row {
   height: var(--app-bottom-nav-height);
+}
+
+.address-fab {
+  bottom: calc(var(--app-bottom-nav-height) + var(--app-safe-bottom) + 16px);
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+@media (max-width: 639px) {
+  body:has(input:focus, textarea:focus, [contenteditable="true"]:focus) .app-bottom-nav {
+    transform: translate3d(0, calc(100% + var(--app-safe-bottom)), 0);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  body:has(input:focus, textarea:focus, [contenteditable="true"]:focus) .address-fab {
+    transform: translate3d(0, 24px, 0);
+    opacity: 0;
+    pointer-events: none;
+  }
 }
 
 .create-route-backdrop {
