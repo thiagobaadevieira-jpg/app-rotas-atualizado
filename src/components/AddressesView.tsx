@@ -109,7 +109,7 @@ export function AddressesView({
             return (
               <article
                 key={m.id}
-                className={`flex min-h-[72px] items-center gap-2 rounded-xl border px-3 py-2 ${
+                className={`flex min-h-[60px] items-center gap-2 rounded-xl border px-2.5 py-1.5 ${
                   isActiveDest ? 'border-[#ff873f]/60 bg-[#1b1815]' : 'border-[#242c25] bg-[#151a16]'
                 }`}
               >
@@ -130,16 +130,16 @@ export function AddressesView({
 
                 <div className="flex shrink-0 items-center gap-0.5">
                   <button type="button" onClick={() => setMapsTarget(m)} aria-label={`Abrir ${m.nome} no Maps`} title="Maps" className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#ff873f] hover:bg-[#ff873f]/10">
-                    <MapPin className="h-6 w-6" />
+                    <MapPin className="h-7 w-7" />
                   </button>
                   <button type="button" onClick={() => onOpenWhatsApp(m)} aria-label={`Abrir WhatsApp de ${m.nome}`} title="WhatsApp" className={`inline-flex h-10 w-10 items-center justify-center rounded-lg hover:bg-[#baff27]/10 ${m.telefone.trim() ? 'text-[#f3f5f2]' : 'text-[#7b877e]'}`}>
-                    <MessageCircle className="h-6 w-6" />
+                    <MessageCircle className="h-7 w-7" />
                   </button>
                   <button type="button" onClick={() => void shareAddress(m)} aria-label={`Compartilhar ${m.nome}`} title="Compartilhar" className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#d5dcd4] hover:bg-[#baff27]/10 hover:text-[#baff27]">
-                    <Share2 className="h-6 w-6" />
+                    <Share2 className="h-7 w-7" />
                   </button>
                   <button type="button" onClick={() => onEdit(m)} aria-label={`Editar ${m.nome}`} title="Editar" className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#d5dcd4] hover:bg-[#baff27]/10 hover:text-[#baff27]">
-                    <Edit3 className="h-6 w-6" />
+                    <Edit3 className="h-7 w-7" />
                   </button>
                   {canDelete && (
                     <button
@@ -156,7 +156,7 @@ export function AddressesView({
                       title={confirmingDelete ? 'Toque novamente para confirmar' : 'Excluir'}
                       className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${confirmingDelete ? 'bg-red-600 text-white' : 'text-red-400 hover:bg-red-500/10'}`}
                     >
-                      {confirmingDelete ? <Check className="h-6 w-6" /> : <Trash2 className="h-6 w-6" />}
+                      {confirmingDelete ? <Check className="h-7 w-7" /> : <Trash2 className="h-7 w-7" />}
                     </button>
                   )}
                 </div>
