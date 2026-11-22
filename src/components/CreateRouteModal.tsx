@@ -87,7 +87,7 @@ export function CreateRouteModal({
   };
 
   return (
-    <div className="create-route-backdrop fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+    <div className="app-modal-backdrop create-route-backdrop fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <div
         className="create-route-dialog flex w-full max-w-lg flex-col rounded-t-3xl border border-[#283129] bg-[#141915] p-5 shadow-2xl sm:rounded-3xl"
         style={visualViewportHeight ? {height: `${Math.min(700, Math.max(320, visualViewportHeight - 8))}px`} : undefined}

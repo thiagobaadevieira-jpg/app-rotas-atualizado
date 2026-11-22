@@ -880,7 +880,7 @@ export function RouteDetailView({
         </div>
       </div>
       {stopToRemove && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (!removingStop && event.target === event.currentTarget) setStopToRemove(null);}}>
+        <div className="app-modal-backdrop fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (!removingStop && event.target === event.currentTarget) setStopToRemove(null);}}>
           <div role="dialog" aria-modal="true" aria-labelledby="confirm-remove-stop-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
             <h2 id="confirm-remove-stop-title" className="text-lg font-bold text-[#f3f5f2]">Excluir parada da rota?</h2>
             <p className="mt-2 text-sm text-[#bdc7bd]">{stopToRemove.nome} será removida desta rota. A marmoraria continuará cadastrada em Endereços.</p>
@@ -893,7 +893,7 @@ export function RouteDetailView({
         </div>
       )}
       {mapsConfirmation && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (event.target === event.currentTarget) setMapsConfirmation(null);}}>
+        <div className="app-modal-backdrop fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (event.target === event.currentTarget) setMapsConfirmation(null);}}>
           <div role="dialog" aria-modal="true" aria-labelledby="confirm-maps-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
             {mapsConfirmation.stopId === COMPANY_DESTINATION_ID && canSendReturnNotice && !companyIsCurrent ? <>
               <h2 id="confirm-maps-title" className="text-lg font-bold text-[#f3f5f2]">Avisar que está voltando à empresa?</h2>

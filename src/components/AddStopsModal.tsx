@@ -63,7 +63,7 @@ export function AddStopsModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+    <div className="app-modal-backdrop fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4">
       <div className="flex h-[82dvh] max-h-[88dvh] w-full max-w-lg flex-col rounded-t-3xl border border-[#283129] bg-[#141915] p-5 shadow-2xl sm:h-[620px] sm:rounded-3xl">
         <div className="flex shrink-0 items-center justify-between gap-3">
           <div>
