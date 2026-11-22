@@ -733,10 +733,10 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0d100e] pb-24 text-[#f3f5f2]">
+    <div className="app-shell min-h-screen bg-[#0d100e] text-[#f3f5f2]">
       {/* Compact Sticky Top Bar */}
-      <header className="sticky top-0 z-30 border-b border-[#1f2620] bg-[#0d100e]/90 backdrop-blur-md">
-        <div className="relative mx-auto flex h-13 max-w-6xl items-center justify-center px-4 sm:px-6">
+      <header className="app-header sticky top-0 z-30 border-b border-[#1f2620] bg-[#0d100e]/90 backdrop-blur-md">
+        <div className="app-header-row relative mx-auto flex max-w-6xl items-center justify-center px-4 sm:px-6">
           <span className="text-base font-extrabold tracking-tight text-[#f3f5f2] whitespace-nowrap">
             Rota <span className="text-[#baff27]">Italik</span>
           </span>
@@ -860,9 +860,9 @@ export default function App() {
       {/* Fixed Bottom Navigation Bar */}
       <nav
         aria-label="Navegação principal"
-        className="fixed right-0 bottom-0 left-0 z-40 border-t border-[#1f2620] bg-[#0d100e]/95 backdrop-blur-md pb-safe"
+        className="app-bottom-nav fixed right-0 bottom-0 left-0 z-40 border-t border-[#1f2620] bg-[#0d100e]/95 backdrop-blur-md"
       >
-        <div className="mx-auto grid h-16 max-w-6xl grid-cols-3 items-center">
+        <div className="app-bottom-nav-row mx-auto grid max-w-6xl grid-cols-3 items-center">
           {(
             [
               {id: 'rotas', label: 'Rotas', Icon: RouteIcon},

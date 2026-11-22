@@ -105,7 +105,7 @@ export function AddressesView({
       {shareNotice && <p role="status" className="rounded-xl border border-[#baff27]/40 bg-[#baff27]/10 px-3 py-2 text-xs text-[#baff27]">{shareNotice}</p>}
 
       {/* Search bar */}
-      <div className="sticky top-13 z-20 bg-[#0d100e] py-2">
+      <div className="address-search-sticky -mx-4 bg-[#0d100e] px-4 py-2 sm:-mx-6 sm:px-6">
         <div className="relative">
         <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[#7b877e]" />
         <input
