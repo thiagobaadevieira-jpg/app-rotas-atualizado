@@ -1,4 +1,4 @@
-import {Check, Link2, LocateFixed, MapPin, X} from 'lucide-react';
+import {Check, Link2, LocateFixed, X} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import type {Coordinates, Marmoraria} from '../types.ts';
 import {
@@ -274,18 +274,10 @@ export function MarmorariaModal({
           </div>
 
           <div>
-            <div className="mb-1.5 flex items-center justify-between gap-2">
+            <div className="mb-1.5">
               <label className="text-xs font-semibold text-[#d5dcd4]">
                 Coordenadas (latitude, longitude ou link do Google Maps)
               </label>
-              <button
-                type="button"
-                onClick={() => setShowMapPicker((prev) => !prev)}
-                className="inline-flex min-h-[34px] items-center gap-1 text-xs font-semibold text-[#ff873f] hover:underline"
-              >
-                <MapPin className="h-3.5 w-3.5" />
-                <span>{showMapPicker ? 'Ocultar mapa' : 'Marcar no mapa'}</span>
-              </button>
             </div>
 
             <div className="relative">
@@ -365,3 +357,4 @@ export function MarmorariaModal({
     </div>
   );
 }
+

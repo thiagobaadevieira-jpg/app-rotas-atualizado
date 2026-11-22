@@ -69,22 +69,16 @@ export function AddressesView({
 
   return (
     <div className="space-y-3 pb-20">
-      <div>
-        <h1 className="text-xl font-bold tracking-tight text-[#f3f5f2] sm:text-2xl">Endereços</h1>
-        <p className="mt-0.5 text-xs text-[#9aa59c] tabular-nums">
-          {marmorarias.length}{' '}
-          {marmorarias.length === 1 ? 'marmoraria cadastrada' : 'marmorarias cadastradas'}
-        </p>
-      </div>
+      <div className="address-header-sticky -mx-4 bg-[#0d100e] px-4 pt-2 pb-3 sm:-mx-6 sm:px-6">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-[#f3f5f2] sm:text-2xl">Endereços</h1>
+          <p className="mt-0.5 text-xs text-[#9aa59c] tabular-nums">
+            {marmorarias.length}{' '}
+            {marmorarias.length === 1 ? 'marmoraria cadastrada' : 'marmorarias cadastradas'}
+          </p>
+        </div>
 
-      {shareNotice && (
-        <p role="status" className="rounded-xl border border-[#baff27]/40 bg-[#baff27]/10 px-3 py-2 text-xs text-[#baff27]">
-          {shareNotice}
-        </p>
-      )}
-
-      <div className="address-search-sticky -mx-4 bg-[#0d100e] px-4 py-2 sm:-mx-6 sm:px-6">
-        <div className="relative">
+        <div className="relative mt-3">
           <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[#7b877e]" />
           <input
             type="search"
@@ -95,6 +89,12 @@ export function AddressesView({
           />
         </div>
       </div>
+
+      {shareNotice && (
+        <p role="status" className="rounded-xl border border-[#baff27]/40 bg-[#baff27]/10 px-3 py-2 text-xs text-[#baff27]">
+          {shareNotice}
+        </p>
+      )}
 
       {filtered.length === 0 ? (
         <div className="rounded-2xl border border-[#242c25] bg-[#151a16] p-8 text-center">
@@ -130,16 +130,16 @@ export function AddressesView({
 
                 <div className="flex shrink-0 items-center gap-0.5">
                   <button type="button" onClick={() => setMapsTarget(m)} aria-label={`Abrir ${m.nome} no Maps`} title="Maps" className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#ff873f] hover:bg-[#ff873f]/10">
-                    <MapPin className="h-5 w-5" />
+                    <MapPin className="h-4 w-4" />
                   </button>
                   <button type="button" onClick={() => onOpenWhatsApp(m)} aria-label={`Abrir WhatsApp de ${m.nome}`} title="WhatsApp" className={`inline-flex h-10 w-10 items-center justify-center rounded-lg hover:bg-[#baff27]/10 ${m.telefone.trim() ? 'text-[#f3f5f2]' : 'text-[#7b877e]'}`}>
-                    <MessageCircle className="h-5 w-5" />
+                    <MessageCircle className="h-4 w-4" />
                   </button>
                   <button type="button" onClick={() => void shareAddress(m)} aria-label={`Compartilhar ${m.nome}`} title="Compartilhar" className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#d5dcd4] hover:bg-[#baff27]/10 hover:text-[#baff27]">
-                    <Share2 className="h-5 w-5" />
+                    <Share2 className="h-4 w-4" />
                   </button>
                   <button type="button" onClick={() => onEdit(m)} aria-label={`Editar ${m.nome}`} title="Editar" className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#d5dcd4] hover:bg-[#baff27]/10 hover:text-[#baff27]">
-                    <Edit3 className="h-5 w-5" />
+                    <Edit3 className="h-4 w-4" />
                   </button>
                   {canDelete && (
                     <button
@@ -156,7 +156,7 @@ export function AddressesView({
                       title={confirmingDelete ? 'Toque novamente para confirmar' : 'Excluir'}
                       className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${confirmingDelete ? 'bg-red-600 text-white' : 'text-red-400 hover:bg-red-500/10'}`}
                     >
-                      {confirmingDelete ? <Check className="h-5 w-5" /> : <Trash2 className="h-5 w-5" />}
+                      {confirmingDelete ? <Check className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
                     </button>
                   )}
                 </div>
@@ -169,10 +169,11 @@ export function AddressesView({
       <button
         type="button"
         onClick={() => onCreateNew(false)}
-        className="address-fab fixed right-4 z-30 inline-flex min-h-[52px] items-center gap-2 rounded-full bg-[#baff27] px-5 text-sm font-bold text-[#0d100e] shadow-[0_10px_30px_rgba(0,0,0,0.45)] transition-transform active:scale-95"
+        aria-label="Cadastrar marmoraria"
+        title="Cadastrar marmoraria"
+        className="address-fab fixed right-4 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#baff27] text-[#0d100e] shadow-[0_10px_30px_rgba(0,0,0,0.45)] transition-transform active:scale-95"
       >
-        <Plus className="h-5 w-5" />
-        Cadastrar
+        <Plus className="h-6 w-6" />
       </button>
 
       {mapsTarget && (
@@ -190,3 +191,4 @@ export function AddressesView({
     </div>
   );
 }
+

@@ -54,10 +54,11 @@ body,
   height: var(--app-header-height);
 }
 
-.address-search-sticky {
+.address-header-sticky {
   position: sticky;
   top: calc(var(--app-header-height) + var(--app-safe-top));
   z-index: 25;
+  box-shadow: 0 1px 0 rgba(38, 47, 39, 0.8);
 }
 
 .app-bottom-nav {
@@ -75,7 +76,6 @@ body,
   bottom: calc(var(--app-bottom-nav-height) + var(--app-safe-bottom) + 16px);
   transition: transform 160ms ease, opacity 160ms ease;
 }
-
 
 .app-modal-backdrop {
   align-items: flex-start !important;
@@ -205,3 +205,4 @@ body,
   color: #0d100e;
   box-shadow: 0 0 0 3px rgba(186, 255, 39, 0.35), 0 2px 8px rgba(0, 0, 0, 0.5);
 }
+
