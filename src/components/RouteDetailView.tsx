@@ -8,6 +8,8 @@ import {
   Info,
   LocateFixed,
   MapPin,
+  Maximize2,
+  Minimize2,
   Navigation,
   Phone,
   Plus,
@@ -285,6 +287,7 @@ export function RouteDetailView({
   const [draggingStopId, setDraggingStopId] = useState<string | null>(null);
   const [optimizing, setOptimizing] = useState(false);
   const [optimizationNotice, setOptimizationNotice] = useState<string | null>(null);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [mapsConfirmation, setMapsConfirmation] = useState<{
     name: string;
     url: string;
@@ -335,6 +338,19 @@ export function RouteDetailView({
       unlockPageScroll();
     };
   }, []);
+
+  useEffect(() => {
+    if (!isMapExpanded) return;
+    lockPageScroll();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMapExpanded(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('keydown', closeOnEscape);
+      unlockPageScroll();
+    };
+  }, [isMapExpanded]);
 
   useEffect(() => {
     if (!isDraggingRef.current) {
@@ -581,14 +597,25 @@ export function RouteDetailView({
       {/* Desktop 2-column split: Map left, Ordered stops right */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
         <div className="space-y-3 lg:sticky lg:top-16 lg:col-span-5">
-          <AppMap
-            mode="route"
-            stops={route.stops}
-            company={company}
-            currentDestinationStopId={route.currentDestinationStopId}
-            userPosition={userPosition}
-            className="h-64 w-full sm:h-72 lg:h-80"
-          />
+          <div className={isMapExpanded ? 'route-map-fullscreen' : 'relative'}>
+            <AppMap
+              mode="route"
+              stops={route.stops}
+              company={company}
+              currentDestinationStopId={route.currentDestinationStopId}
+              userPosition={userPosition}
+              className={isMapExpanded ? 'h-full w-full' : 'h-64 w-full sm:h-72 lg:h-80'}
+            />
+            <button
+              type="button"
+              onClick={() => setIsMapExpanded((expanded) => !expanded)}
+              aria-label={isMapExpanded ? 'Fechar mapa em tela cheia' : 'Ampliar mapa para tela cheia'}
+              title={isMapExpanded ? 'Voltar ao tamanho normal' : 'Ampliar mapa'}
+              className="absolute top-2 right-2 z-[500] inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#394539] bg-[#0d100e]/95 text-[#f3f5f2] shadow-lg hover:border-[#baff27]/60 hover:text-[#baff27]"
+            >
+              {isMapExpanded ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+            </button>
+          </div>
 
           <p className="flex items-start gap-2 text-xs leading-relaxed text-[#9aa59c]">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#ff873f]" />
@@ -917,3 +944,4 @@ export function RouteDetailView({
     </div>
   );
 }
+
