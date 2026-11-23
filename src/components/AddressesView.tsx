@@ -41,14 +41,14 @@ export function AddressesView({
         return;
       }
       await navigator.clipboard.writeText(message);
-      setShareNotice(`Endere�o de ${m.nome} copiado para compartilhar.`);
+      setShareNotice(`Endereço de ${m.nome} copiado para compartilhar.`);
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
       try {
         await navigator.clipboard.writeText(message);
-        setShareNotice(`Endere�o de ${m.nome} copiado para compartilhar.`);
+        setShareNotice(`Endereço de ${m.nome} copiado para compartilhar.`);
       } catch {
-        setShareNotice('N�o foi poss�vel compartilhar. Tente novamente.');
+        setShareNotice('Não foi possível compartilhar. Tente novamente.');
       }
     }
   };
@@ -71,7 +71,7 @@ export function AddressesView({
     <div className="space-y-3 pb-20">
       <div className="address-header-sticky -mx-4 bg-[#0d100e] px-4 pt-2 pb-3 sm:-mx-6 sm:px-6">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-[#f3f5f2] sm:text-2xl">Endere�os</h1>
+          <h1 className="text-xl font-bold tracking-tight text-[#f3f5f2] sm:text-2xl">Endereços</h1>
           <p className="mt-0.5 text-xs text-[#9aa59c] tabular-nums">
             {marmorarias.length}{' '}
             {marmorarias.length === 1 ? 'marmoraria cadastrada' : 'marmorarias cadastradas'}
@@ -172,7 +172,7 @@ export function AddressesView({
         <div className="app-modal-backdrop fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (event.target === event.currentTarget) setMapsTarget(null);}}>
           <div role="dialog" aria-modal="true" aria-labelledby="address-maps-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
             <h2 id="address-maps-title" className="text-lg font-bold text-[#f3f5f2]">Ir para este destino?</h2>
-            <p className="mt-2 text-sm text-[#bdc7bd]">Ao confirmar, <strong className="text-[#baff27]">{mapsTarget.nome}</strong> ser� marcado como destino atual e o Google Maps ser� aberto.</p>
+            <p className="mt-2 text-sm text-[#bdc7bd]">Ao confirmar, <strong className="text-[#baff27]">{mapsTarget.nome}</strong> será marcado como destino atual e o Google Maps será aberto.</p>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setMapsTarget(null)} className="min-h-[44px] rounded-xl border border-[#394539] px-4 text-sm text-[#e3e8e2]">Cancelar</button>
               <a href={`https://www.google.com/maps/search/?api=1&query=${mapsTarget.lat},${mapsTarget.lng}`} target="_blank" rel="noopener noreferrer" onClick={() => {onNavigateMaps(mapsTarget); setMapsTarget(null);}} className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]">Confirmar e abrir Maps</a>
@@ -188,9 +188,9 @@ export function AddressesView({
           onMouseDown={(event) => {if (event.target === event.currentTarget) setDeleteTarget(null);}}
         >
           <div role="dialog" aria-modal="true" aria-labelledby="delete-address-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
-            <h2 id="delete-address-title" className="text-lg font-bold text-[#f3f5f2]">Excluir endere�o?</h2>
+            <h2 id="delete-address-title" className="text-lg font-bold text-[#f3f5f2]">Excluir endereço?</h2>
             <p className="mt-2 text-sm leading-relaxed text-[#bdc7bd]">
-              A marmoraria <strong className="text-[#f3f5f2]">{deleteTarget.nome}</strong> ser� exclu�da permanentemente.
+              A marmoraria <strong className="text-[#f3f5f2]">{deleteTarget.nome}</strong> será excluída permanentemente.
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setDeleteTarget(null)} className="min-h-[44px] rounded-xl border border-[#394539] px-4 text-sm text-[#e3e8e2]">Cancelar</button>
