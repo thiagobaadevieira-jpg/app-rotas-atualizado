@@ -9,6 +9,7 @@ import {
   MapPin,
   Maximize2,
   Minimize2,
+  MoreVertical,
   Navigation,
   Phone,
   Plus,
@@ -268,6 +269,7 @@ export function RouteDetailView({
   const [isRenaming, setIsRenaming] = useState(false);
   const [draftName, setDraftName] = useState(route.nome);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [routeMenuOpen, setRouteMenuOpen] = useState(false);
   const [stopToRemove, setStopToRemove] = useState<RouteStop | null>(null);
   const [removingStop, setRemovingStop] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
@@ -450,9 +452,9 @@ export function RouteDetailView({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       {/* Header */}
-      <div className="flex flex-col gap-2 rounded-xl border border-[#242c25] bg-[#151a16] p-3">
+      <div className="relative flex flex-col gap-2 rounded-xl border border-[#242c25] bg-[#151a16] px-3 py-2.5">
         {isRenaming ? (
           <form onSubmit={handleSaveName} className="flex flex-col gap-2 sm:flex-row">
             <input
@@ -483,25 +485,27 @@ export function RouteDetailView({
           <>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h1 className="truncate text-base font-bold leading-tight text-[#f3f5f2] sm:text-lg">{route.nome}</h1>
+                <h1 className="truncate text-sm font-medium leading-tight text-[#f3f5f2] sm:text-base">{route.nome}</h1>
                 {route.status === 'finalizada' && (
                   <p className="mt-0.5 text-[11px] font-semibold text-[#baff27]">
                     {route.stops.length > 0 && route.stops.every((stop) => stop.status === 'concluida')
                       ? 'Rota concluída' : 'Rota encerrada'}
                   </p>
                 )}
-                <p className="mt-1 text-[11px] leading-none text-[#8c978e] tabular-nums">
-                  {pendingStops.length} {pendingStops.length === 1 ? 'pendente' : 'pendentes'}
+                <p className="mt-1 flex items-center gap-1 text-[11px] leading-none text-[#8c978e] tabular-nums">
+                  <span className="font-semibold text-[#baff27]">
+                    {pendingStops.length} {pendingStops.length === 1 ? 'pendente' : 'pendentes'}
+                  </span>
                   {finishedStops.length > 0 && (
                     <>
-                      <span aria-hidden="true"> · </span>
-                      {finishedStops.length} {finishedStops.length === 1 ? 'finalizada' : 'finalizadas'}
+                      <span aria-hidden="true">·</span>
+                      <span>{finishedStops.length} {finishedStops.length === 1 ? 'finalizada' : 'finalizadas'}</span>
                     </>
                   )}
                 </p>
               </div>
 
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="relative flex shrink-0 items-center gap-0.5">
                 <button
                   type="button"
                   onClick={() => {
@@ -510,20 +514,38 @@ export function RouteDetailView({
                   }}
                   aria-label="Renomear rota"
                   title="Renomear rota"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#7f8a81] hover:bg-[#202721] hover:text-[#d5dcd4]"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#89958b] hover:bg-[#202721] hover:text-[#d5dcd4]"
                 >
                   <Edit3 className="h-3.5 w-3.5" />
                 </button>
                 {canDelete && (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDelete(true)}
-                    aria-label="Excluir rota"
-                    title="Excluir rota"
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#6f7a71] hover:bg-red-500/10 hover:text-red-400"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setRouteMenuOpen((open) => !open)}
+                      aria-label="Mais opções da rota"
+                      aria-expanded={routeMenuOpen}
+                      title="Mais opções"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#89958b] hover:bg-[#202721] hover:text-[#d5dcd4]"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </button>
+                    {routeMenuOpen && (
+                      <div className="absolute right-0 top-9 z-[650] w-36 rounded-xl border border-[#323d33] bg-[#101411] p-1.5 shadow-2xl">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRouteMenuOpen(false);
+                            setConfirmDelete(true);
+                          }}
+                          className="flex min-h-[40px] w-full items-center gap-2 rounded-lg px-3 text-left text-xs font-semibold text-red-400 hover:bg-red-500/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Excluir rota
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -551,161 +573,170 @@ export function RouteDetailView({
         )}
       </div>
 
-      {/* Desktop 2-column split: Map left, Ordered stops right */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
-        <div className="space-y-3 lg:sticky lg:top-16 lg:col-span-5">
-          <div className={isMapExpanded ? 'route-map-fullscreen' : 'relative'}>
-            <AppMap
-              mode="route"
-              stops={route.stops}
-              company={company}
-              currentDestinationStopId={route.currentDestinationStopId}
-              userPosition={userPosition}
-              className={isMapExpanded ? 'h-full w-full' : 'h-64 w-full sm:h-72 lg:h-80'}
-            />
+      {/* Mapa principal */}
+      <div className={isMapExpanded ? 'route-map-fullscreen' : 'relative overflow-hidden rounded-xl border border-[#344438] bg-[#1b2a24]'}>
+        <AppMap
+          mode="route"
+          stops={route.stops}
+          company={company}
+          currentDestinationStopId={route.currentDestinationStopId}
+          userPosition={userPosition}
+          className={isMapExpanded ? 'h-full w-full' : 'h-52 w-full sm:h-64'}
+        />
+        {!isMapExpanded && (
+          <div className="pointer-events-none absolute left-3 top-3 z-[450] flex items-center gap-3 rounded-lg border border-[#344438] bg-[#0d100e]/90 px-2.5 py-1.5 text-[10px] font-medium shadow-lg backdrop-blur-sm">
+            <span className="inline-flex items-center gap-1 text-[#d5dcd4]">
+              <MapPin className="h-3 w-3 text-[#ff873f]" />
+              {pendingStops.length} {pendingStops.length === 1 ? 'pendente' : 'pendentes'}
+            </span>
+            <span className="inline-flex items-center gap-1 text-[#d5dcd4]">
+              <Check className="h-3 w-3 text-[#baff27]" />
+              {finishedStops.length} {finishedStops.length === 1 ? 'finalizada' : 'finalizadas'}
+            </span>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setIsMapExpanded((expanded) => !expanded)}
+          aria-label={isMapExpanded ? 'Fechar mapa em tela cheia' : 'Ampliar mapa para tela cheia'}
+          title={isMapExpanded ? 'Voltar ao tamanho normal' : 'Ampliar mapa'}
+          className={isMapExpanded
+            ? 'absolute right-3 top-3 z-[500] inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#394539] bg-[#0d100e]/95 text-[#f3f5f2] shadow-lg'
+            : 'absolute bottom-3 left-1/2 z-[500] inline-flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-lg border border-[#394539] bg-[#0d100e]/95 text-[#f3f5f2] shadow-lg hover:border-[#baff27]/60 hover:text-[#baff27]'}
+        >
+          {isMapExpanded ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-4 w-4" />}
+        </button>
+      </div>
+
+      <p className="flex items-center gap-1.5 px-0.5 text-[10px] leading-relaxed text-[#9aa59c]">
+        <Info className="h-3 w-3 shrink-0 text-[#ff873f]" />
+        <span>O Google Maps atualiza o tempo ao abrir a rota.</span>
+      </p>
+
+      {/* GPS, tempo, distância e abertura no Maps */}
+      <div className="space-y-3 rounded-xl border border-[#344438] bg-[#151a16] p-3">
+        <div className="flex items-center justify-between gap-2 border-b border-[#2b352d] pb-3 text-[11px]">
+          <span className="flex min-w-0 items-center gap-1.5 text-[#c7d0c8]">
+            <Navigation className="h-3 w-3 shrink-0 text-[#baff27]" />
+            <span className="truncate">
+              {userPosition ? 'Partida: GPS ativo' : geoError || 'Partida: aguardando GPS'}
+            </span>
+          </span>
+          {userPosition ? (
+            <span className="shrink-0 rounded-full bg-[#053c23] px-2 py-1 text-[10px] font-semibold text-[#31d875]">GPS ativo</span>
+          ) : (
             <button
               type="button"
-              onClick={() => setIsMapExpanded((expanded) => !expanded)}
-              aria-label={isMapExpanded ? 'Fechar mapa em tela cheia' : 'Ampliar mapa para tela cheia'}
-              title={isMapExpanded ? 'Voltar ao tamanho normal' : 'Ampliar mapa'}
-              className="absolute top-2 right-2 z-[500] inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#394539] bg-[#0d100e]/95 text-[#f3f5f2] shadow-lg hover:border-[#baff27]/60 hover:text-[#baff27]"
+              onClick={onRequestGeo}
+              className="inline-flex min-h-[34px] shrink-0 items-center gap-1.5 rounded-lg border border-[#baff27]/40 px-2.5 font-semibold text-[#baff27]"
             >
-              {isMapExpanded ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+              <LocateFixed className="h-3.5 w-3.5" />
+              <span>Usar meu GPS</span>
             </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 text-[10px] uppercase tracking-wide text-[#89958b] tabular-nums">
+          <div>
+            <p>Tempo total</p>
+            <p className="mt-1 text-xs font-semibold normal-case tracking-normal text-[#baff27]">
+              {estimatesLoading ? 'Calculando...' : estimates ? `~${formatDurationPt(estimates.totalDurationSec)}` : 'Aguardando GPS'}
+            </p>
           </div>
-
-          <p className="flex items-start gap-2 text-xs leading-relaxed text-[#9aa59c]">
-            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#ff873f]" />
-            <span>O Google Maps atualiza o tempo ao abrir a rota.</span>
-          </p>
-
-          {/* Geolocation, Time Estimate & Google Maps Route Buttons */}
-          <div className="space-y-3 rounded-2xl border border-[#242c25] bg-[#151a16] p-4">
-            <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="text-[#9aa59c]">
-                {userPosition
-                  ? 'Ponto de partida: GPS ativo'
-                  : geoError || 'Ponto de partida: aguardando GPS'}
-              </span>
-              {!userPosition && (
-                <button
-                  type="button"
-                  onClick={onRequestGeo}
-                  className="inline-flex min-h-[36px] shrink-0 items-center gap-1.5 font-semibold text-[#baff27] hover:underline"
-                >
-                  <LocateFixed className="h-3.5 w-3.5" />
-                  <span>Usar meu GPS</span>
-                </button>
-              )}
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p>Distância</p>
+              <p className="mt-1 text-xs font-medium normal-case tracking-normal text-[#f3f5f2]">
+                {estimates ? formatDistancePt(estimates.totalDistanceMeters) : '—'}
+              </p>
             </div>
-
-            {orderedPending.length > 0 && (estimates || estimatesLoading) && (
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#252e26] bg-[#101411] px-3 py-2 text-xs tabular-nums">
-                <div className="flex items-center gap-1.5 text-[#d5dcd4]">
-                  <Clock className="h-3.5 w-3.5 shrink-0 text-[#baff27]" />
-                  {estimates ? (
-                    <span>
-                      Tempo total:{' '}
-                      <strong className="text-[#baff27]">
-                        ~{formatDurationPt(estimates.totalDurationSec)}
-                      </strong>{' '}
-                      / {formatDistancePt(estimates.totalDistanceMeters)}
-                    </span>
-                  ) : (
-                    <span className="text-[#9aa59c]">Calculando tempo dos trechos...</span>
-                  )}
-                </div>
-                {estimates && (
-                  <span className="text-[10px] font-medium text-[#7b877e]">
-                    {estimates.source === 'osrm' ? 'Via OpenStreetMap' : 'Estimativa offline'}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {!userPosition && orderedPending.length === 1 && (
-              <p className="text-[11px] text-[#7b877e]">
-                Toque em Usar minha posição para estimar o tempo até a parada.
-              </p>
-            )}
-
-            {mapsSegments.length === 0 ? (
-              <p className="text-xs text-[#7b877e]">
-                Adicione paradas pendentes para abrir a navegação no Google Maps.
-              </p>
-            ) : mapsSegments.length === 1 ? (
-              <button
-                type="button"
-                onClick={() => {
-                  const firstStop = activeDest || orderedPending[0];
-                  if (firstStop) requestMaps(firstStop, mapsSegments[0].url);
-                }}
-                className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-[#baff27] px-4 py-3 text-sm font-bold text-[#0d100e] transition-transform active:scale-[0.98]"
-              >
-                <Navigation className="h-4 w-4" />
-                <span>Abrir rota no Google Maps</span>
-                <ExternalLink className="h-3.5 w-3.5" />
-              </button>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-[#ff873f]">
-                  Rota dividida em partes para respeitar o limite de paradas do Google Maps no
-                  celular:
-                </p>
-                <div className="grid grid-cols-1 gap-2">
-                  {mapsSegments.map((seg) => (
-                    <button
-                      key={seg.partIndex}
-                      onClick={() => {
-                        const targetStop = orderedPending[seg.startStopNumber - 1] || orderedPending[0];
-                        if (targetStop) requestMaps(targetStop, seg.url);
-                      }}
-                      type="button"
-                      className="flex min-h-[46px] items-center justify-between rounded-xl bg-[#baff27] px-4 py-2.5 text-sm font-bold text-[#0d100e] transition-transform active:scale-[0.98]"
-                    >
-                      <span>{seg.label}</span>
-                      <ExternalLink className="h-4 w-4 shrink-0" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {company && orderedPending.length === 0 && (
-              <button type="button" onClick={() => setMapsConfirmation({name: company.name, url: buildSingleStopGoogleMapsUrl(company, userPosition), stopId: COMPANY_DESTINATION_ID})} className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[#ff873f] px-3 text-xs font-bold text-[#ff873f]">
-                <Navigation className="h-4 w-4" /> Navegar de volta à empresa
-              </button>
+            {estimates && (
+              <span title={estimates.source === 'osrm' ? 'Via OpenStreetMap' : 'Estimativa offline'}>
+                <Clock className="mt-4 h-3.5 w-3.5 text-[#baff27]" />
+              </span>
             )}
           </div>
         </div>
 
-        {/* Ordered Stops List */}
-        <div className="space-y-4 lg:col-span-7">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-base font-bold text-[#f3f5f2]">
-              Paradas da rota ({pendingStops.length} pendentes)
-            </h2>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void handleOptimizeRoute()}
-                disabled={optimizing || pendingStops.length < 2}
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#ff873f] bg-[#ff873f]/15 px-3.5 py-2 text-xs font-bold text-[#ff873f] hover:bg-[#ff873f]/25 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Zap className="h-4 w-4" />
-                <span className="whitespace-nowrap">{optimizing ? 'Otimizando...' : 'Otimizar rota'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={onOpenAddStops}
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#baff27]/50 bg-[#baff27]/10 px-3.5 py-2 text-xs font-bold text-[#baff27] hover:bg-[#baff27]/20"
-              >
-                <Plus className="h-4 w-4" />
-                <span className="whitespace-nowrap">Adicionar paradas</span>
-              </button>
+        {!userPosition && orderedPending.length === 1 && (
+          <p className="text-[11px] text-[#7b877e]">Use seu GPS para estimar o tempo até a parada.</p>
+        )}
+
+        {mapsSegments.length === 0 ? (
+          <p className="text-xs text-[#7b877e]">Adicione paradas pendentes para abrir a navegação no Google Maps.</p>
+        ) : mapsSegments.length === 1 ? (
+          <button
+            type="button"
+            onClick={() => {
+              const firstStop = activeDest || orderedPending[0];
+              if (firstStop) requestMaps(firstStop, mapsSegments[0].url);
+            }}
+            className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-lg bg-[#baff27] px-4 py-2.5 text-xs font-bold text-[#0d100e] transition-transform active:scale-[0.98]"
+          >
+            <Navigation className="h-3.5 w-3.5" />
+            <span>Abrir rota no Google Maps</span>
+            <ExternalLink className="h-3 w-3" />
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-[11px] font-medium text-[#ff873f]">Rota dividida em partes por causa do limite do Google Maps:</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {mapsSegments.map((seg) => (
+                <button
+                  key={seg.partIndex}
+                  onClick={() => {
+                    const targetStop = orderedPending[seg.startStopNumber - 1] || orderedPending[0];
+                    if (targetStop) requestMaps(targetStop, seg.url);
+                  }}
+                  type="button"
+                  className="flex min-h-[44px] items-center justify-between rounded-lg bg-[#baff27] px-4 py-2 text-xs font-bold text-[#0d100e] transition-transform active:scale-[0.98]"
+                >
+                  <span>{seg.label}</span>
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                </button>
+              ))}
             </div>
           </div>
-          {optimizationNotice && <p role="status" className="text-xs text-[#ffad73]">{optimizationNotice}</p>}
+        )}
+
+        {company && orderedPending.length === 0 && (
+          <button type="button" onClick={() => setMapsConfirmation({name: company.name, url: buildSingleStopGoogleMapsUrl(company, userPosition), stopId: COMPANY_DESTINATION_ID})} className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-[#ff873f] px-3 text-xs font-bold text-[#ff873f]">
+            <Navigation className="h-4 w-4" /> Navegar de volta à empresa
+          </button>
+        )}
+      </div>
+
+      {/* Controles e lista de paradas */}
+      <div className="space-y-2 pt-0.5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-[#f3f5f2]">Paradas da rota</h2>
+          <span className="rounded-full bg-[#053c23] px-2 py-1 text-[10px] font-semibold text-[#31d875]">
+            {pendingStops.length} {pendingStops.length === 1 ? 'pendente' : 'pendentes'}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => void handleOptimizeRoute()}
+            disabled={optimizing || pendingStops.length < 2}
+            className="inline-flex min-h-[42px] items-center justify-center gap-1.5 rounded-lg border border-[#ff873f] px-3 py-2 text-xs font-semibold text-[#ff873f] hover:bg-[#ff873f]/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Zap className="h-3.5 w-3.5" />
+            <span className="whitespace-nowrap">{optimizing ? 'Otimizando...' : 'Otimizar'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={onOpenAddStops}
+            className="inline-flex min-h-[42px] items-center justify-center gap-1.5 rounded-lg border border-[#baff27]/70 px-3 py-2 text-xs font-semibold text-[#baff27] hover:bg-[#baff27]/10"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span className="whitespace-nowrap">Adicionar paradas</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {optimizationNotice && <p role="status" className="text-xs text-[#ffad73]">{optimizationNotice}</p>}
 
           {route.stops.length === 0 ? (
             <div className="rounded-2xl border border-[#242c25] bg-[#151a16] p-8 text-center">
@@ -857,7 +888,6 @@ export function RouteDetailView({
             </>
           )}
         </div>
-      </div>
       {stopToRemove && (
         <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (!removingStop && event.target === event.currentTarget) setStopToRemove(null);}}>
           <div role="dialog" aria-modal="true" aria-labelledby="confirm-remove-stop-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
