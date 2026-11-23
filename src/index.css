@@ -131,6 +131,12 @@ body,
   filter: saturate(0.62) contrast(0.94) brightness(1.02);
 }
 
+/* Keep Leaflet tiles at their intrinsic size when the map enters fullscreen. */
+.rota-leaflet-container img.leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+}
+
 .rota-leaflet-container .leaflet-control-attribution {
   background: rgba(13, 16, 14, 0.78) !important;
   color: #a6b0a8 !important;
