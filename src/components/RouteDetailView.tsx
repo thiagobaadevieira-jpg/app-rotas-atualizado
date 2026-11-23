@@ -145,12 +145,12 @@ function DraggableStopItem({
               {stop.nome}
             </p>
             <p className="ml-1 inline text-[11px] text-[#9aa59c]">
-              <span className="mr-1 text-[#5f6b61]">·</span>
+              <span className="mr-1 text-[#5f6b61]">�</span>
               {stop.cidade}
               {isCurrent && (
                 <span className="font-semibold text-[#baff27]"> - Destino atual</span>
               )}
-              {isArrived && <span className="font-semibold text-[#baff27]"> - Você chegou</span>}
+              {isArrived && <span className="font-semibold text-[#baff27]"> - Voc� chegou</span>}
             </p>
             <p className="mt-1 flex items-center gap-1 text-[10px] leading-none text-[#8c9a8e] tabular-nums">
               <Clock className="h-3 w-3 shrink-0" />
@@ -188,7 +188,7 @@ function DraggableStopItem({
         </div>
       </div>
 
-      {/* Action buttons: Maps arrow, WhatsApp phone, Concluída (✓), Não entregue (X) */}
+      {/* Action buttons: Maps arrow, WhatsApp phone, Conclu�da (V), N�o entregue (X) */}
       <div className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-1.5 border-t border-[#2a322b] pt-2">
         <div className="grid min-w-0 grid-cols-2 gap-1.5">
           <button
@@ -215,22 +215,22 @@ function DraggableStopItem({
           <button
             type="button"
             onClick={() => onUpdateStopStatus(routeId, stop.stopId, 'concluida')}
-            aria-label={`Marcar ${stop.nome} como concluída`}
-            title="Concluída"
+            aria-label={`Marcar ${stop.nome} como conclu�da`}
+            title="Conclu�da"
             className="inline-flex min-h-[40px] min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-[#334b20] px-1 text-[10px] font-medium text-[#baff27] hover:bg-[#baff27] hover:text-[#0d100e] sm:text-xs"
           >
             <Check className="h-3.5 w-3.5 shrink-0" />
-            <span>Concluída</span>
+            <span>Conclu�da</span>
           </button>
           <button
             type="button"
             onClick={() => onUpdateStopStatus(routeId, stop.stopId, 'nao_entregue')}
-            aria-label={`Marcar ${stop.nome} como não entregue`}
-            title="Não entregue"
+            aria-label={`Marcar ${stop.nome} como n�o entregue`}
+            title="N�o entregue"
             className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg bg-[#4a2d1c] text-[#ff873f] hover:bg-[#ff873f] hover:text-[#0d100e]"
           >
             <X className="h-4 w-4 shrink-0" />
-            <span className="hidden">Não entregue</span>
+            <span className="hidden">N�o entregue</span>
           </button>
         </div>
       </div>
@@ -360,7 +360,7 @@ export function RouteDetailView({
       await onRemoveStop(route.id, stopToRemove.stopId);
       setStopToRemove(null);
     } catch (error) {
-      setRemoveError(error instanceof Error ? error.message : 'Não foi possível excluir esta parada.');
+      setRemoveError(error instanceof Error ? error.message : 'N�o foi poss�vel excluir esta parada.');
     } finally {
       setRemovingStop(false);
     }
@@ -440,10 +440,10 @@ export function RouteDetailView({
       setOrderedPending(ordered);
       onReorderPendingStops(route.id, ordered.map((stop) => stop.stopId));
       setOptimizationNotice(result.source === 'osrm'
-        ? `Rota calculada a partir da primeira parada (${firstStop.nome}), pelo tempo de deslocamento nas ruas. Você ainda pode arrastar as paradas.`
-        : `Rota calculada a partir da primeira parada (${firstStop.nome}), por estimativa de distância. Você ainda pode arrastar as paradas.`);
+        ? `Rota calculada a partir da primeira parada (${firstStop.nome}), pelo tempo de deslocamento nas ruas. Voc� ainda pode arrastar as paradas.`
+        : `Rota calculada a partir da primeira parada (${firstStop.nome}), por estimativa de dist�ncia. Voc� ainda pode arrastar as paradas.`);
     } catch (error) {
-      setOptimizationNotice(error instanceof Error ? error.message : 'Não foi possível otimizar a rota. Tente novamente.');
+      setOptimizationNotice(error instanceof Error ? error.message : 'N�o foi poss�vel otimizar a rota. Tente novamente.');
     } finally {
       setOptimizing(false);
     }
@@ -487,14 +487,14 @@ export function RouteDetailView({
                 {route.status === 'finalizada' && (
                   <p className="mt-0.5 text-[11px] font-semibold text-[#baff27]">
                     {route.stops.length > 0 && route.stops.every((stop) => stop.status === 'concluida')
-                      ? 'Rota concluída' : 'Rota encerrada'}
+                      ? 'Rota conclu�da' : 'Rota encerrada'}
                   </p>
                 )}
                 <p className="mt-1 text-[11px] leading-none text-[#8c978e] tabular-nums">
                   {pendingStops.length} {pendingStops.length === 1 ? 'pendente' : 'pendentes'}
                   {finishedStops.length > 0 && (
                     <>
-                      <span aria-hidden="true"> · </span>
+                      <span aria-hidden="true"> � </span>
                       {finishedStops.length} {finishedStops.length === 1 ? 'finalizada' : 'finalizadas'}
                     </>
                   )}
@@ -625,13 +625,13 @@ export function RouteDetailView({
 
             {!userPosition && orderedPending.length === 1 && (
               <p className="text-[11px] text-[#7b877e]">
-                Toque em Usar minha posição para estimar o tempo até a parada.
+                Toque em Usar minha posi��o para estimar o tempo at� a parada.
               </p>
             )}
 
             {mapsSegments.length === 0 ? (
               <p className="text-xs text-[#7b877e]">
-                Adicione paradas pendentes para abrir a navegação no Google Maps.
+                Adicione paradas pendentes para abrir a navega��o no Google Maps.
               </p>
             ) : mapsSegments.length === 1 ? (
               <button
@@ -673,7 +673,7 @@ export function RouteDetailView({
 
             {company && orderedPending.length === 0 && (
               <button type="button" onClick={() => setMapsConfirmation({name: company.name, url: buildSingleStopGoogleMapsUrl(company, userPosition), stopId: COMPANY_DESTINATION_ID})} className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-[#ff873f] px-3 text-xs font-bold text-[#ff873f]">
-                <Navigation className="h-4 w-4" /> Navegar de volta à empresa
+                <Navigation className="h-4 w-4" /> Navegar de volta � empresa
               </button>
             )}
           </div>
@@ -710,10 +710,10 @@ export function RouteDetailView({
           {route.stops.length === 0 ? (
             <div className="rounded-2xl border border-[#242c25] bg-[#151a16] p-8 text-center">
               <p className="text-sm font-medium text-[#f3f5f2]">
-                Esta rota ainda não possui paradas.
+                Esta rota ainda n�o possui paradas.
               </p>
               <p className="mt-1 text-xs text-[#9aa59c]">
-                Toque em Adicionar paradas ou no botão + para selecionar marmorarias.
+                Toque em Adicionar paradas ou no bot�o + para selecionar marmorarias.
               </p>
             </div>
           ) : (
@@ -785,7 +785,7 @@ export function RouteDetailView({
                   <div className="flex items-center gap-2">
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#baff27] text-[#0d100e]"><MapPin className="h-4 w-4" /></span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-[#f3f5f2]">Volta à empresa · {company.name}</p>
+                      <p className="text-sm font-bold text-[#f3f5f2]">Volta � empresa � {company.name}</p>
                       {company.address && <p className="text-xs text-[#9aa59c]">{company.address}</p>}
                       {companyIsCurrent && <p className="mt-1 text-xs font-semibold text-[#baff27]">Destino atual</p>}
                       <p className="mt-1 text-[11px] text-[#baff27]">
@@ -803,7 +803,7 @@ export function RouteDetailView({
               {finishedStops.length > 0 && (
                 <div className="space-y-2.5 pt-2">
                   <h3 className="text-xs font-semibold tracking-wide text-[#7b877e]">
-                    Histórico desta rota ({finishedStops.length})
+                    Hist�rico desta rota ({finishedStops.length})
                   </h3>
                   <ul className="space-y-2">
                     {finishedStops.map((stop) => {
@@ -819,9 +819,9 @@ export function RouteDetailView({
                             </p>
                             <p className="mt-0.5 text-xs text-[#9aa59c]">
                               {stop.cidade}
-                              <span aria-hidden="true"> · </span>
+                              <span aria-hidden="true"> � </span>
                               <span className={isDone ? 'text-[#baff27]' : 'text-[#ff873f]'}>
-                                {isDone ? 'Concluída' : 'Não entregue'}
+                                {isDone ? 'Conclu�da' : 'N�o entregue'}
                               </span>
                             </p>
                           </div>
@@ -859,10 +859,10 @@ export function RouteDetailView({
         </div>
       </div>
       {stopToRemove && (
-        <div className="app-modal-backdrop fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (!removingStop && event.target === event.currentTarget) setStopToRemove(null);}}>
+        <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (!removingStop && event.target === event.currentTarget) setStopToRemove(null);}}>
           <div role="dialog" aria-modal="true" aria-labelledby="confirm-remove-stop-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
             <h2 id="confirm-remove-stop-title" className="text-lg font-bold text-[#f3f5f2]">Excluir parada da rota?</h2>
-            <p className="mt-2 text-sm text-[#bdc7bd]">{stopToRemove.nome} será removida desta rota. A marmoraria continuará cadastrada em Endereços.</p>
+            <p className="mt-2 text-sm text-[#bdc7bd]">{stopToRemove.nome} ser� removida desta rota. A marmoraria continuar� cadastrada em Endere�os.</p>
             {removeError && <p role="alert" className="mt-3 text-sm text-[#ff873f]">{removeError}</p>}
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" disabled={removingStop} onClick={() => setStopToRemove(null)} className="min-h-[44px] rounded-xl border border-[#394539] px-4 text-sm text-[#e3e8e2]">Cancelar</button>
@@ -875,7 +875,7 @@ export function RouteDetailView({
         <div className="app-modal-backdrop fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (event.target === event.currentTarget) setMapsConfirmation(null);}}>
           <div role="dialog" aria-modal="true" aria-labelledby="confirm-maps-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
             {mapsConfirmation.stopId === COMPANY_DESTINATION_ID && canSendReturnNotice && !companyIsCurrent ? <>
-              <h2 id="confirm-maps-title" className="text-lg font-bold text-[#f3f5f2]">Avisar que está voltando à empresa?</h2>
+              <h2 id="confirm-maps-title" className="text-lg font-bold text-[#f3f5f2]">Avisar que est� voltando � empresa?</h2>
               <p className="mt-2 text-sm text-[#bdc7bd]">Escolha se deseja enviar o aviso pelo WhatsApp antes de abrir a rota no Maps.</p>
               <div className="mt-5 flex flex-col gap-2">
                 <a href={mapsConfirmation.url} target="_blank" rel="noopener noreferrer" onClick={() => {onSelectCompanyDestination(route.id, true, orderedPending.length === 0 && userPosition && estimates ? Math.round(estimates.totalDurationSec) : undefined); setMapsConfirmation(null);}} className="inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl bg-[#baff27] px-4 text-sm font-bold text-[#0d100e]"><Navigation className="h-4 w-4" />Abrir Maps e enviar aviso</a>
@@ -884,7 +884,7 @@ export function RouteDetailView({
               </div>
             </> : <>
               <h2 id="confirm-maps-title" className="text-lg font-bold text-[#f3f5f2]">Ir para este destino?</h2>
-              <p className="mt-2 text-sm text-[#bdc7bd]">Ao confirmar, <strong className="text-[#baff27]">{mapsConfirmation.name}</strong> aparecerá na rota como seu destino atual e o Google Maps será aberto.</p>
+              <p className="mt-2 text-sm text-[#bdc7bd]">Ao confirmar, <strong className="text-[#baff27]">{mapsConfirmation.name}</strong> aparecer� na rota como seu destino atual e o Google Maps ser� aberto.</p>
               <div className="mt-5 flex justify-end gap-2">
                 <button type="button" onClick={() => setMapsConfirmation(null)} className="min-h-[44px] rounded-xl border border-[#394539] px-4 text-sm text-[#e3e8e2]">Cancelar</button>
                 <a href={mapsConfirmation.url} target="_blank" rel="noopener noreferrer" onClick={() => {if (mapsConfirmation.stopId === COMPANY_DESTINATION_ID) onSelectCompanyDestination(route.id); else onSelectDestination(route.id, mapsConfirmation.stopId, true); setMapsConfirmation(null);}} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]"><Navigation className="h-4 w-4" />Confirmar e abrir Maps</a>
@@ -896,4 +896,3 @@ export function RouteDetailView({
     </div>
   );
 }
-
