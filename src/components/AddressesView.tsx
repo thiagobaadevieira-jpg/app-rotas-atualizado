@@ -1,4 +1,4 @@
-import {Check, Edit3, MapPin, MessageCircle, Plus, Search, Share2, Trash2} from 'lucide-react';
+import {Edit3, MapPin, MessageCircle, Plus, Search, Share2, Trash2} from 'lucide-react';
 import {useMemo, useState} from 'react';
 import type {Marmoraria} from '../types.ts';
 
@@ -26,7 +26,7 @@ export function AddressesView({
   collectionCounts,
 }: AddressesViewProps) {
   const [query, setQuery] = useState('');
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Marmoraria | null>(null);
   const [mapsTarget, setMapsTarget] = useState<Marmoraria | null>(null);
   const [shareNotice, setShareNotice] = useState<string | null>(null);
 
@@ -105,7 +105,6 @@ export function AddressesView({
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
           {filtered.map((m) => {
             const isActiveDest = activeDestinationMarmId === m.id;
-            const confirmingDelete = confirmDeleteId === m.id;
             return (
               <article
                 key={m.id}
@@ -144,19 +143,12 @@ export function AddressesView({
                   {canDelete && (
                     <button
                       type="button"
-                      onClick={() => {
-                        if (confirmingDelete) {
-                          onDelete(m.id);
-                          setConfirmDeleteId(null);
-                        } else {
-                          setConfirmDeleteId(m.id);
-                        }
-                      }}
-                      aria-label={confirmingDelete ? `Confirmar exclusão de ${m.nome}` : `Excluir ${m.nome}`}
-                      title={confirmingDelete ? 'Toque novamente para confirmar' : 'Excluir'}
-                      className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${confirmingDelete ? 'bg-red-600 text-white' : 'text-red-400 hover:bg-red-500/10'}`}
+                      onClick={() => setDeleteTarget(m)}
+                      aria-label={`Excluir ${m.nome}`}
+                      title="Excluir"
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-red-400 hover:bg-red-500/10"
                     >
-                      {confirmingDelete ? <Check className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   )}
                 </div>
@@ -184,6 +176,34 @@ export function AddressesView({
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setMapsTarget(null)} className="min-h-[44px] rounded-xl border border-[#394539] px-4 text-sm text-[#e3e8e2]">Cancelar</button>
               <a href={`https://www.google.com/maps/search/?api=1&query=${mapsTarget.lat},${mapsTarget.lng}`} target="_blank" rel="noopener noreferrer" onClick={() => {onNavigateMaps(mapsTarget); setMapsTarget(null);}} className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]">Confirmar e abrir Maps</a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div
+          className="app-modal-backdrop fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4"
+          role="presentation"
+          onMouseDown={(event) => {if (event.target === event.currentTarget) setDeleteTarget(null);}}
+        >
+          <div role="dialog" aria-modal="true" aria-labelledby="delete-address-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
+            <h2 id="delete-address-title" className="text-lg font-bold text-[#f3f5f2]">Excluir endereço?</h2>
+            <p className="mt-2 text-sm leading-relaxed text-[#bdc7bd]">
+              A marmoraria <strong className="text-[#f3f5f2]">{deleteTarget.nome}</strong> será excluída permanentemente.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setDeleteTarget(null)} className="min-h-[44px] rounded-xl border border-[#394539] px-4 text-sm text-[#e3e8e2]">Cancelar</button>
+              <button
+                type="button"
+                onClick={() => {
+                  onDelete(deleteTarget.id);
+                  setDeleteTarget(null);
+                }}
+                className="min-h-[44px] rounded-xl bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-500"
+              >
+                Excluir
+              </button>
             </div>
           </div>
         </div>
