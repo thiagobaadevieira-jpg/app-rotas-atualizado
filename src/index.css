@@ -87,6 +87,10 @@ body,
   padding-left: 12px !important;
 }
 
+  .app-modal-backdrop.app-modal-centered {
+    align-items: center !important;
+  }
+
 .route-map-fullscreen {
   position: fixed;
   inset: 0;
@@ -216,4 +220,3 @@ body,
   color: #0d100e;
   box-shadow: 0 0 0 3px rgba(186, 255, 39, 0.35), 0 2px 8px rgba(0, 0, 0, 0.5);
 }
-
