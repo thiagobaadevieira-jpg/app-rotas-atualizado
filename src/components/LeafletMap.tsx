@@ -191,6 +191,36 @@ export function LeafletMap({
     pickedPosition,
   ]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    let secondFrame = 0;
+    const refreshSizeAndTiles = () => {
+      map.invalidateSize({animate: false, pan: false});
+      map.eachLayer((layer) => {
+        if (layer instanceof L.TileLayer) layer.redraw();
+      });
+    };
+
+    const firstFrame = requestAnimationFrame(() => {
+      refreshSizeAndTiles();
+      secondFrame = requestAnimationFrame(refreshSizeAndTiles);
+    });
+    const delayedRefresh = window.setTimeout(refreshSizeAndTiles, 250);
+
+    window.addEventListener('resize', refreshSizeAndTiles);
+    window.addEventListener('orientationchange', refreshSizeAndTiles);
+
+    return () => {
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+      window.clearTimeout(delayedRefresh);
+      window.removeEventListener('resize', refreshSizeAndTiles);
+      window.removeEventListener('orientationchange', refreshSizeAndTiles);
+    };
+  }, [className]);
+
   return (
     <div
       ref={containerRef}
