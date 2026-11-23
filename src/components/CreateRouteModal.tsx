@@ -123,7 +123,10 @@ export function CreateRouteModal({
 
           <div className="flex min-h-0 flex-1 flex-col">
             <p className="mb-2 text-xs font-semibold text-[#d5dcd4]">
-              Selecionar paradas iniciais (opcional · {selectedIds.length} selecionadas)
+              Selecionar paradas iniciais <span className="font-normal text-[#7b877e]">(opcional)</span>
+              <span className="ml-1.5 font-bold text-[#baff27] tabular-nums">
+                · {selectedIds.length} {selectedIds.length === 1 ? 'selecionada' : 'selecionadas'}
+              </span>
             </p>
             <div className="relative mb-4">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa59c]" />
@@ -212,3 +215,4 @@ export function CreateRouteModal({
     </div>
   );
 }
+
