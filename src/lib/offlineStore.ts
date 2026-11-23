@@ -13,6 +13,14 @@ export type PendingChange =
   | {id: string; kind: 'saveTemplates'; value: WhatsAppTemplate[]}
   | {id: string; kind: 'saveCompany'; value: CompanyLocation | null};
 
+export type WebhookDispatchStatus = {
+  state: 'pending' | 'sent' | 'failed';
+  updatedAt: string;
+  pending: number;
+};
+
+type WebhookDispatchResult = {sent?: boolean; skipped?: boolean};
+
 interface OfflineSnapshot {
   version: 1;
   profile: Profile;
@@ -22,6 +30,21 @@ interface OfflineSnapshot {
 
 const lastUserKey = 'ri_last_authenticated_user_v1';
 const keyFor = (userId: string) => `ri_offline_v1:${userId}`;
+const webhookKeyFor = (userId: string) => `ri_webhook_status_v1:${userId}`;
+
+export function readWebhookStatus(userId: string): WebhookDispatchStatus | null {
+  try {
+    const raw = localStorage.getItem(webhookKeyFor(userId));
+    if (!raw) return null;
+    const status = JSON.parse(raw) as WebhookDispatchStatus;
+    if (!['pending', 'sent', 'failed'].includes(status.state)) return null;
+    return status;
+  } catch {return null;}
+}
+
+function writeWebhookStatus(userId: string, status: WebhookDispatchStatus): void {
+  try {localStorage.setItem(webhookKeyFor(userId), JSON.stringify(status));} catch { /* storage unavailable */ }
+}
 
 export function lastOfflineUser(): string | null {
   try {return localStorage.getItem(lastUserKey);} catch {return null;}
@@ -56,31 +79,35 @@ export function cacheData(userId: string, profile: Profile, data: AppData): numb
 export function queueChange(userId: string, profile: Profile, data: AppData,
   change: PendingChange): number {
   const pending = [...(readOffline(userId)?.pending || []), change];
+  let queuedWebhook = false;
   if (change.kind === 'saveRoute' && change.notifyStopId && change.notifyAt) {
     pending.push({id: newChangeId(), kind: 'notifyDelivery', routeId: change.value.id,
       stopId: change.notifyStopId, completedAt: change.notifyAt});
+    queuedWebhook = true;
   }
   if (change.kind === 'saveRoute' && change.notifyReturnAt) {
     pending.push({id: newChangeId(), kind: 'notifyReturn', routeId: change.value.id,
       startedAt: change.notifyReturnAt, remainingDurationSec: change.returnDurationSec});
+    queuedWebhook = true;
   }
   writeOffline(userId, {version: 1, profile, data, pending});
+  if (queuedWebhook) {
+    writeWebhookStatus(userId, {
+      state: 'pending',
+      updatedAt: new Date().toISOString(),
+      pending: pending.filter((item) => item.kind === 'notifyDelivery' || item.kind === 'notifyReturn').length,
+    });
+  }
   return pending.length;
 }
 
-async function applyChange(change: PendingChange): Promise<void> {
+async function applyChange(change: PendingChange): Promise<void | WebhookDispatchResult> {
   switch (change.kind) {
     case 'saveMarmoraria': return saveMarmoraria(change.value);
     case 'deleteMarmoraria': return deleteMarmoraria(change.value);
     case 'saveRoute': return saveRoute(change.value, change.previousStopIds);
-    case 'notifyDelivery': {
-      await notifyDelivery(change.routeId, change.stopId, change.completedAt, change.id);
-      return;
-    }
-    case 'notifyReturn': {
-      await notifyReturn(change.routeId, change.startedAt, change.id, change.remainingDurationSec);
-      return;
-    }
+    case 'notifyDelivery': return notifyDelivery(change.routeId, change.stopId, change.completedAt, change.id);
+    case 'notifyReturn': return notifyReturn(change.routeId, change.startedAt, change.id, change.remainingDurationSec);
     case 'deleteRoute': return deleteRoute(change.value);
     case 'saveTemplates': return saveTemplates(change.value);
     case 'saveCompany': return saveCompany(change.value);
@@ -93,16 +120,28 @@ export async function flushChanges(userId: string, onProgress?: (remaining: numb
     const snapshot = readOffline(userId);
     const first = snapshot?.pending[0];
     if (!first) break;
+    const isWebhook = first.kind === 'notifyDelivery' || first.kind === 'notifyReturn';
+    let webhookResult: WebhookDispatchResult | null = null;
     try {
-      await applyChange(first);
+      const result = await applyChange(first);
+      if (isWebhook) webhookResult = result || {};
     } catch (error) {
-      if (first.kind !== 'notifyDelivery' && first.kind !== 'notifyReturn') throw error;
+      if (!isWebhook) throw error;
       deferredNotices.push(first);
     }
     const latest = readOffline(userId);
     if (!latest) throw new Error('A cópia local dos dados foi removida durante a sincronização.');
     latest.pending = latest.pending.filter((item) => item.id !== first.id);
     writeOffline(userId, latest);
+    if (isWebhook && webhookResult) {
+      const remainingWebhooks = latest.pending.filter((item) => item.kind === 'notifyDelivery' || item.kind === 'notifyReturn').length;
+      const sent = webhookResult.sent === true && webhookResult.skipped !== true;
+      writeWebhookStatus(userId, {
+        state: sent && remainingWebhooks === 0 ? 'sent' : sent ? 'pending' : 'failed',
+        updatedAt: new Date().toISOString(),
+        pending: remainingWebhooks,
+      });
+    }
     onProgress?.(latest.pending.length);
   }
   if (deferredNotices.length) {
@@ -110,6 +149,11 @@ export async function flushChanges(userId: string, onProgress?: (remaining: numb
     if (!snapshot) throw new Error('A cópia local foi removida durante a sincronização.');
     snapshot.pending.push(...deferredNotices);
     writeOffline(userId, snapshot);
+    writeWebhookStatus(userId, {
+      state: 'failed',
+      updatedAt: new Date().toISOString(),
+      pending: snapshot.pending.filter((item) => item.kind === 'notifyDelivery' || item.kind === 'notifyReturn').length,
+    });
     onProgress?.(snapshot.pending.length);
   }
 }
@@ -117,3 +161,4 @@ export async function flushChanges(userId: string, onProgress?: (remaining: numb
 export function newChangeId(): string {
   return crypto.randomUUID();
 }
+
