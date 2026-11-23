@@ -576,6 +576,7 @@ export function RouteDetailView({
       {/* Mapa principal */}
       <div className={isMapExpanded ? 'route-map-fullscreen' : 'relative overflow-hidden rounded-xl border border-[#344438] bg-[#1b2a24]'}>
         <AppMap
+          key={isMapExpanded ? 'route-map-expanded' : 'route-map-compact'}
           mode="route"
           stops={route.stops}
           company={company}
@@ -590,7 +591,7 @@ export function RouteDetailView({
           title={isMapExpanded ? 'Voltar ao tamanho normal' : 'Ampliar mapa'}
           className={isMapExpanded
             ? 'absolute right-3 top-3 z-[500] inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#394539] bg-[#0d100e]/95 text-[#f3f5f2] shadow-lg'
-            : 'absolute bottom-3 left-1/2 z-[500] inline-flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-lg border border-[#394539] bg-[#0d100e]/95 text-[#f3f5f2] shadow-lg hover:border-[#baff27]/60 hover:text-[#baff27]'}
+            : 'absolute bottom-3 right-3 z-[500] inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#394539] bg-[#0d100e]/95 text-[#f3f5f2] shadow-lg hover:border-[#baff27]/60 hover:text-[#baff27]'}
         >
           {isMapExpanded ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-4 w-4" />}
         </button>
