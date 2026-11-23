@@ -583,18 +583,6 @@ export function RouteDetailView({
           userPosition={userPosition}
           className={isMapExpanded ? 'h-full w-full' : 'h-52 w-full sm:h-64'}
         />
-        {!isMapExpanded && (
-          <div className="pointer-events-none absolute left-3 top-3 z-[450] flex items-center gap-3 rounded-lg border border-[#344438] bg-[#0d100e]/90 px-2.5 py-1.5 text-[10px] font-medium shadow-lg backdrop-blur-sm">
-            <span className="inline-flex items-center gap-1 text-[#d5dcd4]">
-              <MapPin className="h-3 w-3 text-[#ff873f]" />
-              {pendingStops.length} {pendingStops.length === 1 ? 'pendente' : 'pendentes'}
-            </span>
-            <span className="inline-flex items-center gap-1 text-[#d5dcd4]">
-              <Check className="h-3 w-3 text-[#baff27]" />
-              {finishedStops.length} {finishedStops.length === 1 ? 'finalizada' : 'finalizadas'}
-            </span>
-          </div>
-        )}
         <button
           type="button"
           onClick={() => setIsMapExpanded((expanded) => !expanded)}
@@ -622,9 +610,7 @@ export function RouteDetailView({
               {userPosition ? 'Partida: GPS ativo' : geoError || 'Partida: aguardando GPS'}
             </span>
           </span>
-          {userPosition ? (
-            <span className="shrink-0 rounded-full bg-[#053c23] px-2 py-1 text-[10px] font-semibold text-[#31d875]">GPS ativo</span>
-          ) : (
+          {!userPosition && (
             <button
               type="button"
               onClick={onRequestGeo}
@@ -643,18 +629,13 @@ export function RouteDetailView({
               {estimatesLoading ? 'Calculando...' : estimates ? `~${formatDurationPt(estimates.totalDurationSec)}` : 'Aguardando GPS'}
             </p>
           </div>
-          <div className="flex items-start justify-between gap-2">
+          <div>
             <div>
               <p>Distância</p>
               <p className="mt-1 text-xs font-medium normal-case tracking-normal text-[#f3f5f2]">
                 {estimates ? formatDistancePt(estimates.totalDistanceMeters) : '—'}
               </p>
             </div>
-            {estimates && (
-              <span title={estimates.source === 'osrm' ? 'Via OpenStreetMap' : 'Estimativa offline'}>
-                <Clock className="mt-4 h-3.5 w-3.5 text-[#baff27]" />
-              </span>
-            )}
           </div>
         </div>
 
@@ -708,11 +689,8 @@ export function RouteDetailView({
 
       {/* Controles e lista de paradas */}
       <div className="space-y-2 pt-0.5">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
           <h2 className="text-sm font-medium text-[#f3f5f2]">Paradas da rota</h2>
-          <span className="rounded-full bg-[#053c23] px-2 py-1 text-[10px] font-semibold text-[#31d875]">
-            {pendingStops.length} {pendingStops.length === 1 ? 'pendente' : 'pendentes'}
-          </span>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <button
