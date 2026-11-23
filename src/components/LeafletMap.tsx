@@ -152,9 +152,9 @@ export function LeafletMap({
       if (boundsPoints.length > 0 && hasFittedRef.current !== fitKey) {
         hasFittedRef.current = fitKey;
         if (boundsPoints.length === 1) {
-          map.setView(boundsPoints[0], 14);
+          map.setView(boundsPoints[0], 14, {animate: false});
         } else {
-          map.fitBounds(L.latLngBounds(boundsPoints), {padding: [42, 42], maxZoom: 15});
+          map.fitBounds(L.latLngBounds(boundsPoints), {padding: [42, 42], maxZoom: 15, animate: false});
         }
       }
     } else if (mode === 'pick') {
@@ -174,11 +174,11 @@ export function LeafletMap({
         const fitKey = `pick:${pickedPosition.lat.toFixed(4)},${pickedPosition.lng.toFixed(4)}`;
         if (hasFittedRef.current !== fitKey) {
           hasFittedRef.current = fitKey;
-          map.setView([pickedPosition.lat, pickedPosition.lng], 15);
+            map.setView([pickedPosition.lat, pickedPosition.lng], 15, {animate: false});
         }
       } else if (userPosition && hasFittedRef.current === '') {
         hasFittedRef.current = 'pick:user';
-        map.setView([userPosition.lat, userPosition.lng], 13);
+        map.setView([userPosition.lat, userPosition.lng], 13, {animate: false});
       }
 
     }
