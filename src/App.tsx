@@ -17,7 +17,7 @@ import {useRouteDistances} from './hooks/useRouteDistances.ts';
 import {loadAppData, loadProfile, supabase} from './lib/supabase.ts';
 import type {AppData, Profile} from './lib/supabase.ts';
 import {cacheData, clearLastOfflineUser, flushChanges, lastOfflineUser, newChangeId, queueChange, readOffline, readWebhookStatus} from './lib/offlineStore.ts';
-import type {PendingChange, WebhookDispatchStatus} from './lib/offlineStore.ts';
+import type {PendingChange, WebhookDispatchStatus, WebhookHistoryItem} from './lib/offlineStore.ts';
 import {arrivedDestinationId, COMPANY_DESTINATION_ID, getArrivedStopId} from './types.ts';
 import type {
   Coordinates,
@@ -33,6 +33,28 @@ import {collectionsFromRoutes} from './utils/collections.ts';
 
 const THIAGO_USER_ID = '1e5dc7d4-d1a1-47c4-b06b-21b2021b77ec';
 
+const webhookTime = (value?: string) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+};
+
+const webhookDateTime = (value?: string) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('pt-BR', {
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  });
+};
+
+const webhookStateLabel: Record<WebhookHistoryItem['state'], string> = {
+  pending: 'Pendente',
+  sent: 'Enviado',
+  failed: 'Falhou',
+};
+
 export default function App() {
   const isOnline = useOnlineStatus();
   const [userId, setUserId] = useState<string | null>(null);
@@ -43,6 +65,7 @@ export default function App() {
   const [pendingCount, setPendingCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [webhookStatus, setWebhookStatus] = useState<WebhookDispatchStatus | null>(null);
+  const [webhookPanelOpen, setWebhookPanelOpen] = useState(false);
   const [completionToConfirm, setCompletionToConfirm] = useState<{routeId: string; stopId: string; name: string} | null>(null);
   const syncingRef = useRef(false);
   const syncAgainRef = useRef(false);
@@ -66,7 +89,7 @@ export default function App() {
       setWebhookStatus(readWebhookStatus(id));
       setPendingCount(readOffline(id)?.pending.length || 0);
       if (navigator.onLine) {
-        setDataError(error instanceof Error ? `Sincronização pendente: ${error.message}` : 'Sincronização pendente.');
+        setDataError(error instanceof Error ? `Sincroniza��o pendente: ${error.message}` : 'Sincroniza��o pendente.');
       }
     } finally {
       syncingRef.current = false;
@@ -116,7 +139,7 @@ export default function App() {
     if (navigator.onLine) {
       void syncOfflineData(userId);
     } else if (!snapshot) {
-      setDataError('Conecte-se à internet uma vez para carregar suas rotas neste aparelho.');
+      setDataError('Conecte-se � internet uma vez para carregar suas rotas neste aparelho.');
     }
   }, [userId, syncOfflineData]);
 
@@ -125,7 +148,7 @@ export default function App() {
   }, [isOnline, userId, authReady, syncOfflineData]);
 
   const commitChange = useCallback(async (nextData: AppData, change: PendingChange) => {
-    if (!userId || !profile) throw new Error('Entre novamente para salvar alterações.');
+    if (!userId || !profile) throw new Error('Entre novamente para salvar altera��es.');
     const count = queueChange(userId, profile, nextData, change);
     setWebhookStatus(readWebhookStatus(userId));
     setRemote(nextData);
@@ -138,13 +161,13 @@ export default function App() {
   }, [userId, profile, syncOfflineData]);
 
   const reportError = (error: unknown) => {
-    setDataError(error instanceof Error ? error.message : 'Não foi possível salvar. Tente novamente.');
+    setDataError(error instanceof Error ? error.message : 'N�o foi poss�vel salvar. Tente novamente.');
   };
 
   const marmorarias = remote?.marmorarias || [];
   const routes = remote?.routes || [];
   const templates = remote?.templates || DEFAULT_WHATSAPP_TEMPLATES;
-  const currentUserName = profile?.display_name || 'Você';
+  const currentUserName = profile?.display_name || 'Voc�';
   const collections = useMemo(() => collectionsFromRoutes(routes, marmorarias), [routes, marmorarias]);
 
   const collectionCounts = useMemo(() => {
@@ -197,7 +220,7 @@ export default function App() {
   };
 
   const saveCustomerPhone = async (marmoraria: Marmoraria, phone: string) => {
-    if (!remote) throw new Error('Dados indisponíveis.');
+    if (!remote) throw new Error('Dados indispon�veis.');
     const updated = {...marmoraria, telefone: phone, updatedAt: new Date().toISOString()};
     await commitChange({
       ...remote,
@@ -272,7 +295,7 @@ export default function App() {
 
       setMarmModalCoords(null);
       setShareNotice(
-        'Não foi possível extrair as coordenadas automaticamente deste compartilhamento. Cole as coordenadas manualmente abaixo ou marque o ponto no mapa.'
+        'N�o foi poss�vel extrair as coordenadas automaticamente deste compartilhamento. Cole as coordenadas manualmente abaixo ou marque o ponto no mapa.'
       );
       setMarmModalOpen(true);
     };
@@ -290,7 +313,7 @@ export default function App() {
 
   const requestGeolocation = useCallback(() => {
     if (!('geolocation' in navigator)) {
-      setGeoError('Seu navegador não suporta geolocalização.');
+      setGeoError('Seu navegador n�o suporta geolocaliza��o.');
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -299,7 +322,7 @@ export default function App() {
         setGeoError(null);
       },
       () => {
-        setGeoError('Permissão de localização recusada ou indisponível.');
+        setGeoError('Permiss�o de localiza��o recusada ou indispon�vel.');
       },
       {enableHighAccuracy: true, timeout: 10000}
     );
@@ -316,7 +339,7 @@ export default function App() {
 
       },
       () => {
-        setGeoError('Localização indisponível. Verifique a permissão do navegador.');
+        setGeoError('Localiza��o indispon�vel. Verifique a permiss�o do navegador.');
       },
       {enableHighAccuracy: true, maximumAge: 10000, timeout: 15000}
     );
@@ -378,7 +401,7 @@ export default function App() {
     };
 
     try {
-      if (!remote) throw new Error('Dados indisponíveis.');
+      if (!remote) throw new Error('Dados indispon�veis.');
       await commitChange({...remote, routes: [newRoute, ...remote.routes]},
         {id: newChangeId(), kind: 'saveRoute', value: newRoute, previousStopIds: []});
     } catch (error) {reportError(error); return;}
@@ -395,7 +418,7 @@ export default function App() {
   const handleDeleteRoute = async (routeId: string) => {
     if (profile?.role !== 'admin') return;
     try {
-      if (!remote) throw new Error('Dados indisponíveis.');
+      if (!remote) throw new Error('Dados indispon�veis.');
       await commitChange({...remote, routes: remote.routes.filter((r) => r.id !== routeId)},
         {id: newChangeId(), kind: 'deleteRoute', value: routeId});
     } catch (error) {reportError(error); return;}
@@ -406,7 +429,7 @@ export default function App() {
     if (profile?.role !== 'admin') throw new Error('Somente um administrador pode excluir paradas.');
     const target = routes.find((route) => route.id === routeId);
     if (!target?.stops.some((stop) => stop.stopId === stopId)) {
-      throw new Error('Parada não encontrada. Abra a rota novamente.');
+      throw new Error('Parada n�o encontrada. Abra a rota novamente.');
     }
     const stops = target.stops.filter((stop) => stop.stopId !== stopId);
     const nextRoute: RoutePlan = {
@@ -418,7 +441,7 @@ export default function App() {
       updatedAt: new Date().toISOString(),
     };
     try {
-      if (!remote) throw new Error('Dados indisponíveis.');
+      if (!remote) throw new Error('Dados indispon�veis.');
       await commitChange({...remote, routes: remote.routes.map((route) => route.id === routeId ? nextRoute : route)},
         {id: newChangeId(), kind: 'saveRoute', value: nextRoute, previousStopIds: target.stops.map((stop) => stop.stopId)});
       if (target.currentDestinationStopId === stopId) {
@@ -432,7 +455,7 @@ export default function App() {
   };
 
   const handleApplyRouteStops = async (selectedMarmIds: string[]) => {
-    if (!activeRoute) throw new Error('Rota não encontrada. Abra a rota novamente.');
+    if (!activeRoute) throw new Error('Rota n�o encontrada. Abra a rota novamente.');
 
     const existingByMarmId = new Map<string, RouteStop>();
     activeRoute.stops.forEach((s) => existingByMarmId.set(s.marmorariaId, s));
@@ -474,7 +497,7 @@ export default function App() {
     };
     const previousStopIds = activeRoute.stops.map((stop) => stop.stopId);
     try {
-      if (!remote) throw new Error('Dados indisponíveis.');
+      if (!remote) throw new Error('Dados indispon�veis.');
       await commitChange({...remote, routes: remote.routes.map((route) => route.id === nextRoute.id ? nextRoute : route)},
         {id: newChangeId(), kind: 'saveRoute', value: nextRoute, previousStopIds});
       if (!nextRoute.currentDestinationStopId) {
@@ -621,7 +644,7 @@ export default function App() {
       s.stopId === stopId ? {...s, status, updatedAt: now} : s
     );
 
-    // Move concluída / não entregue to the end of the list; keep pending at top
+    // Move conclu�da / n�o entregue to the end of the list; keep pending at top
     const pending = updatedStops.filter((s) => s.status === 'pendente');
     const finished = updatedStops.filter((s) => s.status !== 'pendente');
 
@@ -685,7 +708,7 @@ export default function App() {
     };
 
     try {
-      if (!remote) throw new Error('Dados indisponíveis.');
+      if (!remote) throw new Error('Dados indispon�veis.');
       const next = remote.marmorarias.some((m) => m.id === record.id)
         ? remote.marmorarias.map((m) => m.id === record.id ? record : m) : [record, ...remote.marmorarias];
       await commitChange({...remote, marmorarias: next}, {id: newChangeId(), kind: 'saveMarmoraria', value: record});
@@ -696,7 +719,7 @@ export default function App() {
   const handleDeleteMarmoraria = async (id: string) => {
     if (profile?.role !== 'admin') return;
     try {
-      if (!remote) throw new Error('Dados indisponíveis.');
+      if (!remote) throw new Error('Dados indispon�veis.');
       await commitChange({...remote, marmorarias: remote.marmorarias.filter((m) => m.id !== id)},
         {id: newChangeId(), kind: 'deleteMarmoraria', value: id});
     } catch (error) {reportError(error);}
@@ -704,7 +727,7 @@ export default function App() {
 
   const handleSaveTemplates = async (nextTemplates: WhatsAppTemplate[]) => {
     try {
-      if (!remote) throw new Error('Dados indisponíveis.');
+      if (!remote) throw new Error('Dados indispon�veis.');
       await commitChange({...remote, templates: nextTemplates},
         {id: newChangeId(), kind: 'saveTemplates', value: nextTemplates});
     } catch (error) {reportError(error);}
@@ -722,7 +745,7 @@ export default function App() {
   const handleSaveCompany = async (nextCompany: CompanyLocation | null) => {
     if (profile?.role !== 'admin') return;
     try {
-      if (!remote) throw new Error('Dados indisponíveis.');
+      if (!remote) throw new Error('Dados indispon�veis.');
       await commitChange({...remote, company: nextCompany},
         {id: newChangeId(), kind: 'saveCompany', value: nextCompany});
     } catch (error) {reportError(error);}
@@ -739,15 +762,33 @@ export default function App() {
 
   const webhookPendingCount = (readOffline(userId)?.pending || [])
     .filter((change) => change.kind === 'notifyDelivery' || change.kind === 'notifyReturn').length;
-  const webhookDisplay = syncing && webhookPendingCount > 0
+  const webhookBaseDisplay = syncing && webhookPendingCount > 0
     ? {label: 'Enviando', title: 'Webhook sendo encaminhado', color: 'text-[#baff27]', icon: Loader2}
     : webhookStatus?.state === 'failed'
-      ? {label: 'Falhou', title: 'Falha ao encaminhar o último webhook', color: 'text-red-400', icon: AlertCircle}
+      ? {label: 'Falhou', title: 'Falha ao encaminhar o �ltimo webhook', color: 'text-red-400', icon: AlertCircle}
       : webhookPendingCount > 0 || webhookStatus?.state === 'pending'
         ? {label: 'Pendente', title: `${webhookPendingCount || webhookStatus?.pending || 1} webhook(s) aguardando envio`, color: 'text-[#ff873f]', icon: Send}
         : webhookStatus?.state === 'sent'
-          ? {label: 'Enviado', title: 'Último webhook encaminhado', color: 'text-[#baff27]', icon: CheckCircle2}
+          ? {label: 'Enviado', title: '�ltimo webhook encaminhado', color: 'text-[#baff27]', icon: CheckCircle2}
           : {label: 'Webhook', title: 'Nenhum webhook pendente', color: 'text-[#6f7a71]', icon: Send};
+  const webhookHistory = webhookStatus?.history || [];
+  const webhookCurrentItem = webhookHistory.find((item) => item.state === webhookStatus?.state)
+    || webhookHistory[0]
+    || null;
+  const webhookTarget = webhookCurrentItem
+    ? webhookCurrentItem.kind === 'return' ? 'Retorno' : webhookCurrentItem.targetName
+    : '';
+  const webhookDisplay = webhookCurrentItem
+    ? syncing && webhookPendingCount > 0
+      ? {...webhookBaseDisplay, label: `Enviando ${webhookTarget}`, title: `Enviando ${webhookCurrentItem.targetName}`}
+      : webhookStatus?.state === 'failed'
+        ? {...webhookBaseDisplay, label: `Falha: ${webhookTarget}`, title: `Falha ao encaminhar ${webhookCurrentItem.targetName}`}
+        : webhookPendingCount > 0 || webhookStatus?.state === 'pending'
+          ? {...webhookBaseDisplay, label: `${webhookTarget} pendente`, title: `${webhookCurrentItem.targetName} aguardando envio`}
+          : webhookStatus?.state === 'sent'
+            ? {...webhookBaseDisplay, label: `${webhookTarget} � ${webhookTime(webhookCurrentItem.updatedAt)}`, title: `${webhookCurrentItem.targetName} encaminhado`}
+            : webhookBaseDisplay
+    : webhookBaseDisplay;
   const WebhookIcon = webhookDisplay.icon;
 
   return (
@@ -755,15 +796,17 @@ export default function App() {
       {/* Compact Sticky Top Bar */}
       <header className="app-header sticky top-0 z-30 border-b border-[#1f2620] bg-[#0d100e]/90 backdrop-blur-md">
         <div className="app-header-row relative mx-auto flex max-w-6xl items-center justify-center px-4 sm:px-6">
-          <div
-            role="status"
+          <button
+            type="button"
+            onClick={() => setWebhookPanelOpen(true)}
+            aria-label="Ver detalhes dos webhooks"
             title={webhookDisplay.title}
-            className={`absolute left-4 inline-flex items-center gap-1 text-[10px] font-semibold sm:left-6 ${webhookDisplay.color}`}
+            className={`absolute left-4 inline-flex max-w-[112px] items-center gap-1 text-[9px] font-semibold sm:left-6 sm:max-w-[240px] sm:text-[10px] ${webhookDisplay.color}`}
           >
             <WebhookIcon className={`h-3.5 w-3.5 ${syncing && webhookPendingCount > 0 ? 'animate-spin' : ''}`} />
-            <span>{webhookDisplay.label}</span>
+            <span className="truncate">{webhookDisplay.label}</span>
             {webhookPendingCount > 0 && <span className="tabular-nums">({webhookPendingCount})</span>}
-          </div>
+          </button>
 
           <span className="text-base font-extrabold tracking-tight text-[#f3f5f2] whitespace-nowrap">
             Rota <span className="text-[#baff27]">Italik</span>
@@ -774,7 +817,7 @@ export default function App() {
             {profile.role === 'admin' && <button
               type="button"
               onClick={() => setSettingsOpen(true)}
-              aria-label="Configurações"
+              aria-label="Configura��es"
               className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-[#baff27] hover:bg-[#baff27]/10"
             >
               <Settings className="h-5 w-5" />
@@ -789,13 +832,71 @@ export default function App() {
         </div>
       </header>
 
+      {webhookPanelOpen && (
+        <div
+          className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4"
+          role="presentation"
+          onMouseDown={(event) => {if (event.target === event.currentTarget) setWebhookPanelOpen(false);}}
+        >
+          <div role="dialog" aria-modal="true" aria-labelledby="webhook-history-title" className="w-full max-w-md rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 id="webhook-history-title" className="text-lg font-bold text-[#f3f5f2]">Envios do webhook</h2>
+                <p className="mt-1 text-xs text-[#9aa59c]">�ltimos cinco avisos gerados pelo aplicativo.</p>
+              </div>
+              <button type="button" onClick={() => setWebhookPanelOpen(false)} aria-label="Fechar hist�rico do webhook" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#9aa59c] hover:bg-[#202721] hover:text-[#f3f5f2]"><X className="h-4 w-4" /></button>
+            </div>
+
+            {webhookHistory.length === 0 ? (
+              <div className="mt-4 rounded-xl border border-[#283129] bg-[#101411] p-4 text-sm text-[#bdc7bd]">
+                O pr�ximo envio mostrar� aqui a marmoraria, a rota, o hor�rio e o resultado.
+              </div>
+            ) : (
+              <ul className="mt-4 max-h-[60vh] space-y-2 overflow-y-auto pr-1">
+                {webhookHistory.map((item) => {
+                  const ItemIcon = item.state === 'sent' ? CheckCircle2 : item.state === 'failed' ? AlertCircle : Send;
+                  const stateColor = item.state === 'sent' ? 'text-[#baff27]' : item.state === 'failed' ? 'text-red-400' : 'text-[#ff873f]';
+                  return (
+                    <li key={item.eventId} className="rounded-xl border border-[#283129] bg-[#101411] p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-[#f3f5f2]">{item.targetName}</p>
+                          <p className="mt-0.5 truncate text-xs text-[#9aa59c]">{item.routeName}</p>
+                        </div>
+                        <span className={`inline-flex shrink-0 items-center gap-1 text-[11px] font-bold ${stateColor}`}>
+                          <ItemIcon className="h-3.5 w-3.5" />{webhookStateLabel[item.state]}
+                        </span>
+                      </div>
+                      <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-[11px]">
+                        <dt className="text-[#6f7a71]">Evento</dt>
+                        <dd className="text-[#bdc7bd]">{item.kind === 'delivery' ? 'Parada conclu�da' : 'Retorno � empresa'}</dd>
+                        <dt className="text-[#6f7a71]">Aconteceu</dt>
+                        <dd className="text-[#bdc7bd] tabular-nums">{webhookDateTime(item.occurredAt)}</dd>
+                        <dt className="text-[#6f7a71]">{item.state === 'sent' ? 'Enviado' : 'Atualizado'}</dt>
+                        <dd className="text-[#bdc7bd] tabular-nums">{webhookDateTime(item.updatedAt)}</dd>
+                      </dl>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            {webhookPendingCount > 0 && (
+              <p className="mt-3 text-xs font-semibold text-[#ff873f] tabular-nums">
+                {webhookPendingCount} {webhookPendingCount === 1 ? 'aviso aguardando envio' : 'avisos aguardando envio'}.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="mx-auto max-w-6xl px-4 pt-5 sm:px-6">
         {(!isOnline || pendingCount > 0 || syncing) && <div role="status" className="mb-4 rounded-xl border border-[#ff873f]/40 bg-[#ff873f]/10 px-3 py-2 text-xs text-[#ffad73]">
-          {!isOnline ? 'Offline: alterações salvas neste aparelho. Serão sincronizadas ao voltar a conexão.' : syncing ? 'Sincronizando alterações...' :
+          {!isOnline ? 'Offline: altera��es salvas neste aparelho. Ser�o sincronizadas ao voltar a conex�o.' : syncing ? 'Sincronizando altera��es...' :
             (readOffline(userId)?.pending || []).every((change) => change.kind === 'notifyDelivery' || change.kind === 'notifyReturn')
               ? `${pendingCount} aviso(s) aguardando envio.`
-              : `${pendingCount} alteração(ões) aguardando sincronização.`}
+              : `${pendingCount} altera��o(�es) aguardando sincroniza��o.`}
           {isOnline && pendingCount > 0 && !syncing && <button type="button" onClick={() => void syncOfflineData(userId)} className="ml-2 font-bold underline">Tentar agora</button>}
         </div>}
         {dataError && <div role="alert" className="mb-4 rounded-xl border border-[#ff873f] bg-[#ff873f]/10 p-3 text-sm text-[#ffad73]">{dataError}<button type="button" onClick={() => setDataError(null)} className="ml-3 underline">Fechar</button></div>}
@@ -886,15 +987,15 @@ export default function App() {
 
       {/* Fixed Bottom Navigation Bar */}
       <nav
-        aria-label="Navegação principal"
+        aria-label="Navega��o principal"
         className="app-bottom-nav fixed right-0 bottom-0 left-0 z-40 border-t border-[#1f2620] bg-[#0d100e]"
       >
         <div className="app-bottom-nav-row mx-auto grid max-w-6xl grid-cols-3 items-center">
           {(
             [
               {id: 'rotas', label: 'Rotas', Icon: RouteIcon},
-              {id: 'enderecos', label: 'Endereços', Icon: MapPin},
-              {id: 'relatorios', label: 'Relatórios', Icon: BarChart3},
+              {id: 'enderecos', label: 'Endere�os', Icon: MapPin},
+              {id: 'relatorios', label: 'Relat�rios', Icon: BarChart3},
             ] as const
           ).map(({id, label, Icon}) => {
             const isActive = activeTab === id;
@@ -928,7 +1029,7 @@ export default function App() {
           <div role="dialog" aria-modal="true" aria-labelledby="completion-notice-title"
             className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
             <h2 id="completion-notice-title" className="text-base font-bold text-[#f3f5f2]">Concluir {completionToConfirm.name}?</h2>
-            <p className="mt-2 text-sm text-[#b7c1b8]">Deseja enviar o aviso pelo WhatsApp? O envio será solicitado à automação configurada.</p>
+            <p className="mt-2 text-sm text-[#b7c1b8]">Deseja enviar o aviso pelo WhatsApp? O envio ser� solicitado � automa��o configurada.</p>
             <div className="mt-5 flex flex-col gap-2">
               <button type="button" onClick={() => confirmCompletion(true)}
                 className="inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-[#baff27] px-4 text-sm font-bold text-[#0d100e]">
@@ -999,4 +1100,3 @@ export default function App() {
     </div>
   );
 }
-
