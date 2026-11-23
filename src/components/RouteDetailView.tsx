@@ -576,7 +576,6 @@ export function RouteDetailView({
       {/* Mapa principal */}
       <div className={isMapExpanded ? 'route-map-fullscreen' : 'relative overflow-hidden rounded-xl border border-[#344438] bg-[#1b2a24]'}>
         <AppMap
-          key={isMapExpanded ? 'route-map-expanded' : 'route-map-compact'}
           mode="route"
           stops={route.stops}
           company={company}
