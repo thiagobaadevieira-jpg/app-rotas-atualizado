@@ -17,6 +17,18 @@ export type WebhookDispatchStatus = {
   state: 'pending' | 'sent' | 'failed';
   updatedAt: string;
   pending: number;
+  history: WebhookHistoryItem[];
+};
+
+export type WebhookHistoryItem = {
+  eventId: string;
+  kind: 'delivery' | 'return';
+  routeId: string;
+  routeName: string;
+  targetName: string;
+  occurredAt: string;
+  state: 'pending' | 'sent' | 'failed';
+  updatedAt: string;
 };
 
 type WebhookDispatchResult = {sent?: boolean; skipped?: boolean};
@@ -38,12 +50,33 @@ export function readWebhookStatus(userId: string): WebhookDispatchStatus | null 
     if (!raw) return null;
     const status = JSON.parse(raw) as WebhookDispatchStatus;
     if (!['pending', 'sent', 'failed'].includes(status.state)) return null;
-    return status;
+    return {...status, history: Array.isArray(status.history) ? status.history.slice(0, 5) : []};
   } catch {return null;}
 }
 
 function writeWebhookStatus(userId: string, status: WebhookDispatchStatus): void {
-  try {localStorage.setItem(webhookKeyFor(userId), JSON.stringify(status));} catch { /* storage unavailable */ }
+  try {
+    localStorage.setItem(webhookKeyFor(userId), JSON.stringify({...status, history: status.history.slice(0, 5)}));
+  } catch { /* storage unavailable */ }
+}
+
+function updateWebhookEventState(
+  userId: string,
+  eventId: string,
+  eventState: WebhookHistoryItem['state'],
+  overallState: WebhookDispatchStatus['state'],
+  pending: number,
+): void {
+  const current = readWebhookStatus(userId);
+  const updatedAt = new Date().toISOString();
+  writeWebhookStatus(userId, {
+    state: overallState,
+    updatedAt,
+    pending,
+    history: (current?.history || []).map((item) =>
+      item.eventId === eventId ? {...item, state: eventState, updatedAt} : item
+    ),
+  });
 }
 
 export function lastOfflineUser(): string | null {
@@ -79,23 +112,46 @@ export function cacheData(userId: string, profile: Profile, data: AppData): numb
 export function queueChange(userId: string, profile: Profile, data: AppData,
   change: PendingChange): number {
   const pending = [...(readOffline(userId)?.pending || []), change];
-  let queuedWebhook = false;
+  const queuedEvents: WebhookHistoryItem[] = [];
   if (change.kind === 'saveRoute' && change.notifyStopId && change.notifyAt) {
-    pending.push({id: newChangeId(), kind: 'notifyDelivery', routeId: change.value.id,
+    const eventId = newChangeId();
+    pending.push({id: eventId, kind: 'notifyDelivery', routeId: change.value.id,
       stopId: change.notifyStopId, completedAt: change.notifyAt});
-    queuedWebhook = true;
+    const stop = change.value.stops.find((item) => item.stopId === change.notifyStopId);
+    queuedEvents.push({
+      eventId,
+      kind: 'delivery',
+      routeId: change.value.id,
+      routeName: change.value.nome,
+      targetName: stop?.nome || 'Parada conclu�da',
+      occurredAt: change.notifyAt,
+      state: 'pending',
+      updatedAt: new Date().toISOString(),
+    });
   }
   if (change.kind === 'saveRoute' && change.notifyReturnAt) {
-    pending.push({id: newChangeId(), kind: 'notifyReturn', routeId: change.value.id,
+    const eventId = newChangeId();
+    pending.push({id: eventId, kind: 'notifyReturn', routeId: change.value.id,
       startedAt: change.notifyReturnAt, remainingDurationSec: change.returnDurationSec});
-    queuedWebhook = true;
+    queuedEvents.push({
+      eventId,
+      kind: 'return',
+      routeId: change.value.id,
+      routeName: change.value.nome,
+      targetName: data.company?.name ? `Retorno � ${data.company.name}` : 'Retorno � empresa',
+      occurredAt: change.notifyReturnAt,
+      state: 'pending',
+      updatedAt: new Date().toISOString(),
+    });
   }
   writeOffline(userId, {version: 1, profile, data, pending});
-  if (queuedWebhook) {
+  if (queuedEvents.length > 0) {
+    const previous = readWebhookStatus(userId);
     writeWebhookStatus(userId, {
       state: 'pending',
       updatedAt: new Date().toISOString(),
       pending: pending.filter((item) => item.kind === 'notifyDelivery' || item.kind === 'notifyReturn').length,
+      history: [...queuedEvents].reverse().concat(previous?.history || []).slice(0, 5),
     });
   }
   return pending.length;
@@ -130,7 +186,7 @@ export async function flushChanges(userId: string, onProgress?: (remaining: numb
       deferredNotices.push(first);
     }
     const latest = readOffline(userId);
-    if (!latest) throw new Error('A cópia local dos dados foi removida durante a sincronização.');
+    if (!latest) throw new Error('A c�pia local dos dados foi removida durante a sincroniza��o.');
     latest.pending = latest.pending.filter((item) => item.id !== first.id);
     writeOffline(userId, latest);
     if (isWebhook && webhookResult) {
@@ -140,19 +196,32 @@ export async function flushChanges(userId: string, onProgress?: (remaining: numb
         state: sent && remainingWebhooks === 0 ? 'sent' : sent ? 'pending' : 'failed',
         updatedAt: new Date().toISOString(),
         pending: remainingWebhooks,
+        history: readWebhookStatus(userId)?.history || [],
       });
+      updateWebhookEventState(
+        userId,
+        first.id,
+        sent ? 'sent' : 'failed',
+        sent && remainingWebhooks === 0 ? 'sent' : sent ? 'pending' : 'failed',
+        remainingWebhooks,
+      );
     }
     onProgress?.(latest.pending.length);
   }
   if (deferredNotices.length) {
     const snapshot = readOffline(userId);
-    if (!snapshot) throw new Error('A cópia local foi removida durante a sincronização.');
+    if (!snapshot) throw new Error('A c�pia local foi removida durante a sincroniza��o.');
     snapshot.pending.push(...deferredNotices);
     writeOffline(userId, snapshot);
     writeWebhookStatus(userId, {
       state: 'failed',
       updatedAt: new Date().toISOString(),
       pending: snapshot.pending.filter((item) => item.kind === 'notifyDelivery' || item.kind === 'notifyReturn').length,
+      history: readWebhookStatus(userId)?.history || [],
+    });
+    const pendingWebhooks = snapshot.pending.filter((item) => item.kind === 'notifyDelivery' || item.kind === 'notifyReturn').length;
+    deferredNotices.forEach((notice) => {
+      updateWebhookEventState(userId, notice.id, 'failed', 'failed', pendingWebhooks);
     });
     onProgress?.(snapshot.pending.length);
   }
@@ -161,4 +230,3 @@ export async function flushChanges(userId: string, onProgress?: (remaining: numb
 export function newChangeId(): string {
   return crypto.randomUUID();
 }
-
