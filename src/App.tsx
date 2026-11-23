@@ -1,4 +1,4 @@
-import {BarChart3, Check, LogOut, MapPin, Route as RouteIcon, Settings, WifiOff, X} from 'lucide-react';
+import {AlertCircle, BarChart3, Check, CheckCircle2, Loader2, LogOut, MapPin, Route as RouteIcon, Send, Settings, WifiOff, X} from 'lucide-react';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {AddStopsModal} from './components/AddStopsModal.tsx';
 import {AddressesView} from './components/AddressesView.tsx';
@@ -16,8 +16,8 @@ import {useOnlineStatus} from './hooks/useOnlineStatus.ts';
 import {useRouteDistances} from './hooks/useRouteDistances.ts';
 import {loadAppData, loadProfile, supabase} from './lib/supabase.ts';
 import type {AppData, Profile} from './lib/supabase.ts';
-import {cacheData, clearLastOfflineUser, flushChanges, lastOfflineUser, newChangeId, queueChange, readOffline} from './lib/offlineStore.ts';
-import type {PendingChange} from './lib/offlineStore.ts';
+import {cacheData, clearLastOfflineUser, flushChanges, lastOfflineUser, newChangeId, queueChange, readOffline, readWebhookStatus} from './lib/offlineStore.ts';
+import type {PendingChange, WebhookDispatchStatus} from './lib/offlineStore.ts';
 import {arrivedDestinationId, COMPANY_DESTINATION_ID, getArrivedStopId} from './types.ts';
 import type {
   Coordinates,
@@ -42,6 +42,7 @@ export default function App() {
   const [dataError, setDataError] = useState<string | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
+  const [webhookStatus, setWebhookStatus] = useState<WebhookDispatchStatus | null>(null);
   const [completionToConfirm, setCompletionToConfirm] = useState<{routeId: string; stopId: string; name: string} | null>(null);
   const syncingRef = useRef(false);
   const syncAgainRef = useRef(false);
@@ -52,6 +53,7 @@ export default function App() {
     setSyncing(true);
     try {
       await flushChanges(id, setPendingCount);
+      setWebhookStatus(readWebhookStatus(id));
       const [nextProfile, nextData] = await Promise.all([loadProfile(id), loadAppData()]);
       if ((readOffline(id)?.pending || []).every((change) => change.kind === 'notifyDelivery' || change.kind === 'notifyReturn')) {
         cacheData(id, nextProfile, nextData);
@@ -61,6 +63,7 @@ export default function App() {
       }
       setDataError(null);
     } catch (error) {
+      setWebhookStatus(readWebhookStatus(id));
       setPendingCount(readOffline(id)?.pending.length || 0);
       if (navigator.onLine) {
         setDataError(error instanceof Error ? `Sincronização pendente: ${error.message}` : 'Sincronização pendente.');
@@ -102,8 +105,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!userId) {setProfile(null); setRemote(null); setPendingCount(0); return;}
+    if (!userId) {setProfile(null); setRemote(null); setPendingCount(0); setWebhookStatus(null); return;}
     const snapshot = readOffline(userId);
+    setWebhookStatus(readWebhookStatus(userId));
     if (snapshot?.profile.active) {
       setProfile(snapshot.profile);
       setRemote(snapshot.data);
@@ -123,6 +127,7 @@ export default function App() {
   const commitChange = useCallback(async (nextData: AppData, change: PendingChange) => {
     if (!userId || !profile) throw new Error('Entre novamente para salvar alterações.');
     const count = queueChange(userId, profile, nextData, change);
+    setWebhookStatus(readWebhookStatus(userId));
     setRemote(nextData);
     setPendingCount(count);
     setDataError(null);
@@ -732,11 +737,34 @@ export default function App() {
     </div>
   );
 
+  const webhookPendingCount = (readOffline(userId)?.pending || [])
+    .filter((change) => change.kind === 'notifyDelivery' || change.kind === 'notifyReturn').length;
+  const webhookDisplay = syncing && webhookPendingCount > 0
+    ? {label: 'Enviando', title: 'Webhook sendo encaminhado', color: 'text-[#baff27]', icon: Loader2}
+    : webhookStatus?.state === 'failed'
+      ? {label: 'Falhou', title: 'Falha ao encaminhar o último webhook', color: 'text-red-400', icon: AlertCircle}
+      : webhookPendingCount > 0 || webhookStatus?.state === 'pending'
+        ? {label: 'Pendente', title: `${webhookPendingCount || webhookStatus?.pending || 1} webhook(s) aguardando envio`, color: 'text-[#ff873f]', icon: Send}
+        : webhookStatus?.state === 'sent'
+          ? {label: 'Enviado', title: 'Último webhook encaminhado', color: 'text-[#baff27]', icon: CheckCircle2}
+          : {label: 'Webhook', title: 'Nenhum webhook pendente', color: 'text-[#6f7a71]', icon: Send};
+  const WebhookIcon = webhookDisplay.icon;
+
   return (
     <div className="app-shell min-h-screen bg-[#0d100e] text-[#f3f5f2]">
       {/* Compact Sticky Top Bar */}
       <header className="app-header sticky top-0 z-30 border-b border-[#1f2620] bg-[#0d100e]/90 backdrop-blur-md">
         <div className="app-header-row relative mx-auto flex max-w-6xl items-center justify-center px-4 sm:px-6">
+          <div
+            role="status"
+            title={webhookDisplay.title}
+            className={`absolute left-4 inline-flex items-center gap-1 text-[10px] font-semibold sm:left-6 ${webhookDisplay.color}`}
+          >
+            <WebhookIcon className={`h-3.5 w-3.5 ${syncing && webhookPendingCount > 0 ? 'animate-spin' : ''}`} />
+            <span>{webhookDisplay.label}</span>
+            {webhookPendingCount > 0 && <span className="tabular-nums">({webhookPendingCount})</span>}
+          </div>
+
           <span className="text-base font-extrabold tracking-tight text-[#f3f5f2] whitespace-nowrap">
             Rota <span className="text-[#baff27]">Italik</span>
           </span>
@@ -808,7 +836,6 @@ export default function App() {
                   company={company}
                   userPosition={userPosition}
                   geoError={geoError}
-                  onBack={() => setSelectedRouteId(null)}
                   onRequestGeo={requestGeolocation}
                   onRenameRoute={handleRenameRoute}
                   onDeleteRoute={(id) => void handleDeleteRoute(id)}
@@ -972,3 +999,4 @@ export default function App() {
     </div>
   );
 }
+
