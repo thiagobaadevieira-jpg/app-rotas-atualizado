@@ -1025,7 +1025,7 @@ export default function App() {
 
       {/* Modals */}
       {completionToConfirm && (
-        <div className="app-modal-backdrop fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4">
+        <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4">
           <div role="dialog" aria-modal="true" aria-labelledby="completion-notice-title"
             className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
             <h2 id="completion-notice-title" className="text-base font-bold text-[#f3f5f2]">Concluir {completionToConfirm.name}?</h2>
