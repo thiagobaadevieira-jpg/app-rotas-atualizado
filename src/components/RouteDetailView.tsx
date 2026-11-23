@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   Check,
   Clock,
   Edit3,
@@ -20,7 +19,7 @@ import {
 } from 'lucide-react';
 import {Reorder, useDragControls} from 'motion/react';
 import {useEffect, useMemo, useRef, useState} from 'react';
-import type {FormEvent, RefObject} from 'react';
+import type {FormEvent} from 'react';
 import {COMPANY_DESTINATION_ID, getArrivedStopId} from '../types.ts';
 import type {CompanyLocation, Coordinates, Marmoraria, RoutePlan, RouteStop} from '../types.ts';
 import {
@@ -40,7 +39,6 @@ interface RouteDetailViewProps {
   company: CompanyLocation | null;
   userPosition: Coordinates | null;
   geoError: string | null;
-  onBack: () => void;
   onRequestGeo: () => void;
   onRenameRoute: (routeId: string, newName: string) => void;
   onDeleteRoute: (routeId: string) => void;
@@ -86,9 +84,6 @@ interface DraggableStopItemProps {
   onOpenWhatsApp: (stop: RouteStop) => void;
   onDragStart: (stopId: string) => void;
   onDragEnd: () => void;
-  onDragHandleDown: () => void;
-  onDragHandleUp: () => void;
-  dragBounds: RefObject<HTMLUListElement | null>;
   onArriveAtStop: (routeId: string, stopId: string) => void;
 }
 
@@ -109,9 +104,6 @@ function DraggableStopItem({
   onOpenWhatsApp,
   onDragStart,
   onDragEnd,
-  onDragHandleDown,
-  onDragHandleUp,
-  dragBounds,
   onArriveAtStop,
 }: DraggableStopItemProps) {
   const dragControls = useDragControls();
@@ -121,7 +113,6 @@ function DraggableStopItem({
       value={stop}
       dragListener={false}
       dragControls={dragControls}
-      dragConstraints={dragBounds}
       dragElastic={0}
       dragMomentum={false}
       onDragStart={() => onDragStart(stop.stopId)}
@@ -181,12 +172,8 @@ function DraggableStopItem({
           <button
             type="button"
             onPointerDown={(e) => {
-              e.preventDefault();
-              onDragHandleDown();
               dragControls.start(e);
             }}
-            onPointerUp={onDragHandleUp}
-            onPointerCancel={onDragHandleUp}
             aria-label={`Segurar e arrastar ${stop.nome} para reordenar`}
             title="Segurar e arrastar para reordenar"
             className={`inline-flex h-10 w-10 shrink-0 cursor-grab touch-none select-none items-center justify-center rounded-lg border transition-colors active:cursor-grabbing ${
@@ -263,7 +250,6 @@ export function RouteDetailView({
   company,
   userPosition,
   geoError,
-  onBack,
   onRequestGeo,
   onRenameRoute,
   onDeleteRoute,
@@ -301,7 +287,6 @@ export function RouteDetailView({
   );
   const [orderedPending, setOrderedPending] = useState<RouteStop[]>(pendingStops);
   const latestOrderRef = useRef<RouteStop[]>(pendingStops);
-  const dragBounds = useRef<HTMLUListElement>(null);
   const isDraggingRef = useRef(false);
   const pageScrollLock = useRef<{y: number; bodyStyle: string; htmlOverflow: string} | null>(null);
 
@@ -328,17 +313,6 @@ export function RouteDetailView({
     document.documentElement.style.overflow = lock.htmlOverflow;
     window.scrollTo(0, lock.y);
   };
-
-  useEffect(() => {
-    const release = () => unlockPageScroll();
-    window.addEventListener('pointerup', release);
-    window.addEventListener('pointercancel', release);
-    return () => {
-      window.removeEventListener('pointerup', release);
-      window.removeEventListener('pointercancel', release);
-      unlockPageScroll();
-    };
-  }, []);
 
   useEffect(() => {
     if (!isMapExpanded) return;
@@ -478,110 +452,92 @@ export function RouteDetailView({
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col gap-3 rounded-2xl border border-[#242c25] bg-[#151a16] p-4">
-        <div className="flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={onBack}
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-2.5 text-sm font-medium text-[#d5dcd4] hover:bg-[#1e251f]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Rotas</span>
-          </button>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setDraftName(route.nome);
-                setIsRenaming((prev) => !prev);
-              }}
-              aria-label="Renomear rota"
-              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-[#283129] bg-[#101411] text-[#d5dcd4] hover:border-[#baff27]/40 hover:text-[#baff27]"
-            >
-              <Edit3 className="h-4 w-4" />
-            </button>
-
-            {!canDelete ? null : confirmDelete ? (
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => onDeleteRoute(route.id)}
-                  className="min-h-[44px] rounded-xl bg-red-600 px-3 text-xs font-bold text-white hover:bg-red-500"
-                >
-                  Confirmar exclusão
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(false)}
-                  className="min-h-[44px] rounded-xl border border-[#283129] px-3 text-xs text-[#9aa59c]"
-                >
-                  Cancelar
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(true)}
-                aria-label="Excluir rota"
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-[#283129] bg-[#101411] text-[#9aa59c] hover:border-red-500/40 hover:text-red-400"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        </div>
-
+      <div className="flex flex-col gap-2 rounded-xl border border-[#242c25] bg-[#151a16] p-3">
         {isRenaming ? (
           <form onSubmit={handleSaveName} className="flex flex-col gap-2 sm:flex-row">
             <input
               type="text"
               value={draftName}
               onChange={(e) => setDraftName(e.target.value)}
-              className="min-h-[44px] flex-1 rounded-xl border border-[#323d33] bg-[#0d100e] px-3.5 text-sm text-[#f3f5f2] focus:border-[#baff27] focus:outline-none"
+              className="min-h-[40px] flex-1 rounded-lg border border-[#323d33] bg-[#0d100e] px-3 text-sm text-[#f3f5f2] focus:border-[#baff27] focus:outline-none"
               placeholder="Nome da rota"
               autoFocus
             />
             <div className="flex gap-2">
               <button
                 type="submit"
-                className="min-h-[44px] rounded-xl bg-[#baff27] px-4 text-sm font-bold text-[#0d100e]"
+                className="min-h-[40px] rounded-lg bg-[#baff27] px-4 text-xs font-bold text-[#0d100e]"
               >
                 Salvar
               </button>
               <button
                 type="button"
                 onClick={() => setIsRenaming(false)}
-                className="min-h-[44px] rounded-xl border border-[#283129] px-4 text-sm text-[#9aa59c]"
+                className="min-h-[40px] rounded-lg border border-[#283129] px-4 text-xs text-[#9aa59c]"
               >
                 Cancelar
               </button>
             </div>
           </form>
         ) : (
-          <div>
-            <h1 className="text-xl font-bold text-[#f3f5f2] sm:text-2xl">{route.nome}</h1>
-            {route.status === 'finalizada' && (
-              <p className="mt-1 text-xs font-semibold text-[#baff27]">
-                {route.stops.length > 0 && route.stops.every((stop) => stop.status === 'concluida')
-                  ? 'Rota concluída' : 'Rota encerrada'}
-              </p>
+          <>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h1 className="truncate text-base font-bold leading-tight text-[#f3f5f2] sm:text-lg">{route.nome}</h1>
+                {route.status === 'finalizada' && (
+                  <p className="mt-0.5 text-[11px] font-semibold text-[#baff27]">
+                    {route.stops.length > 0 && route.stops.every((stop) => stop.status === 'concluida')
+                      ? 'Rota concluída' : 'Rota encerrada'}
+                  </p>
+                )}
+                <p className="mt-1 text-[11px] leading-none text-[#8c978e] tabular-nums">
+                  {pendingStops.length} {pendingStops.length === 1 ? 'pendente' : 'pendentes'}
+                  {finishedStops.length > 0 && (
+                    <>
+                      <span aria-hidden="true"> · </span>
+                      {finishedStops.length} {finishedStops.length === 1 ? 'finalizada' : 'finalizadas'}
+                    </>
+                  )}
+                </p>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftName(route.nome);
+                    setIsRenaming(true);
+                  }}
+                  aria-label="Renomear rota"
+                  title="Renomear rota"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#7f8a81] hover:bg-[#202721] hover:text-[#d5dcd4]"
+                >
+                  <Edit3 className="h-3.5 w-3.5" />
+                </button>
+                {canDelete && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    aria-label="Excluir rota"
+                    title="Excluir rota"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#6f7a71] hover:bg-red-500/10 hover:text-red-400"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {confirmDelete && (
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-2">
+                <span className="text-[11px] text-red-300">Excluir esta rota?</span>
+                <div className="flex gap-1.5">
+                  <button type="button" onClick={() => setConfirmDelete(false)} className="min-h-[36px] rounded-lg px-3 text-[11px] text-[#b7c0b8]">Cancelar</button>
+                  <button type="button" onClick={() => onDeleteRoute(route.id)} className="min-h-[36px] rounded-lg bg-red-600 px-3 text-[11px] font-bold text-white">Excluir</button>
+                </div>
+              </div>
             )}
-            <p className="mt-1 text-xs text-[#9aa59c] tabular-nums">
-              <span>
-                {pendingStops.length} {pendingStops.length === 1 ? 'pendente' : 'pendentes'}
-              </span>
-              {finishedStops.length > 0 && (
-                <>
-                  <span aria-hidden="true"> · </span>
-                  <span>
-                    {finishedStops.length}{' '}
-                    {finishedStops.length === 1 ? 'finalizada' : 'finalizadas'}
-                  </span>
-                </>
-              )}
-            </p>
-          </div>
+          </>
         )}
         {route.status !== 'finalizada' && (
           <div className="flex flex-wrap gap-2">
@@ -766,7 +722,6 @@ export function RouteDetailView({
               {orderedPending.length > 0 && (
                 <div className="space-y-2.5">
                   <Reorder.Group
-                    ref={dragBounds}
                     axis="y"
                     values={orderedPending}
                     onReorder={(nextOrder) => {
@@ -805,16 +760,12 @@ export function RouteDetailView({
                           onRequestRemove={(item) => {setRemoveError(null); setStopToRemove(item);}}
                           onUpdateStopStatus={onUpdateStopStatus}
                           onArriveAtStop={onArriveAtStop}
-                          dragBounds={dragBounds}
                           onOpenWhatsApp={onOpenWhatsApp}
                           onDragStart={(id) => {
                             isDraggingRef.current = true;
                             setDraggingStopId(id);
                           }}
-                          onDragHandleDown={lockPageScroll}
-                          onDragHandleUp={unlockPageScroll}
                           onDragEnd={() => {
-                            unlockPageScroll();
                             isDraggingRef.current = false;
                             setDraggingStopId(null);
                             onReorderPendingStops(
