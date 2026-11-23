@@ -123,7 +123,7 @@ export function queueChange(userId: string, profile: Profile, data: AppData,
       kind: 'delivery',
       routeId: change.value.id,
       routeName: change.value.nome,
-      targetName: stop?.nome || 'Parada conclu�da',
+      targetName: stop?.nome || 'Parada concluída',
       occurredAt: change.notifyAt,
       state: 'pending',
       updatedAt: new Date().toISOString(),
@@ -138,7 +138,7 @@ export function queueChange(userId: string, profile: Profile, data: AppData,
       kind: 'return',
       routeId: change.value.id,
       routeName: change.value.nome,
-      targetName: data.company?.name ? `Retorno � ${data.company.name}` : 'Retorno � empresa',
+      targetName: data.company?.name ? `Retorno à ${data.company.name}` : 'Retorno à empresa',
       occurredAt: change.notifyReturnAt,
       state: 'pending',
       updatedAt: new Date().toISOString(),
@@ -186,7 +186,7 @@ export async function flushChanges(userId: string, onProgress?: (remaining: numb
       deferredNotices.push(first);
     }
     const latest = readOffline(userId);
-    if (!latest) throw new Error('A c�pia local dos dados foi removida durante a sincroniza��o.');
+    if (!latest) throw new Error('A cópia local dos dados foi removida durante a sincronização.');
     latest.pending = latest.pending.filter((item) => item.id !== first.id);
     writeOffline(userId, latest);
     if (isWebhook && webhookResult) {
@@ -210,7 +210,7 @@ export async function flushChanges(userId: string, onProgress?: (remaining: numb
   }
   if (deferredNotices.length) {
     const snapshot = readOffline(userId);
-    if (!snapshot) throw new Error('A c�pia local foi removida durante a sincroniza��o.');
+    if (!snapshot) throw new Error('A cópia local foi removida durante a sincronização.');
     snapshot.pending.push(...deferredNotices);
     writeOffline(userId, snapshot);
     writeWebhookStatus(userId, {
