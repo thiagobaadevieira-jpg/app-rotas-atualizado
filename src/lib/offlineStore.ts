@@ -1,14 +1,15 @@
 import type {AppData, Profile} from './supabase.ts';
 import {deleteMarmoraria, deleteRoute, saveCompany, saveMarmoraria, saveRoute, saveTemplates} from './supabase.ts';
 import type {CompanyLocation, Marmoraria, RoutePlan, WhatsAppTemplate} from '../types.ts';
-import {notifyDelivery, notifyReturn} from './webhookConfig.ts';
+import {notifyCancellation, notifyDelivery, notifyReturn} from './webhookConfig.ts';
 
 export type PendingChange =
   | {id: string; kind: 'saveMarmoraria'; value: Marmoraria}
   | {id: string; kind: 'deleteMarmoraria'; value: string}
-  | {id: string; kind: 'saveRoute'; value: RoutePlan; previousStopIds: string[]; notifyStopId?: string; notifyAt?: string; notifyReturnAt?: string; returnDurationSec?: number}
+  | {id: string; kind: 'saveRoute'; value: RoutePlan; previousStopIds: string[]; notifyStopId?: string; notifyAt?: string; notifyReturnAt?: string; returnDurationSec?: number; notifyCancellationAt?: string}
   | {id: string; kind: 'notifyDelivery'; routeId: string; stopId: string; completedAt: string}
   | {id: string; kind: 'notifyReturn'; routeId: string; startedAt: string; remainingDurationSec?: number}
+  | {id: string; kind: 'notifyCancellation'; routeId: string; cancelledAt: string}
   | {id: string; kind: 'deleteRoute'; value: string}
   | {id: string; kind: 'saveTemplates'; value: WhatsAppTemplate[]}
   | {id: string; kind: 'saveCompany'; value: CompanyLocation | null};
@@ -22,7 +23,7 @@ export type WebhookDispatchStatus = {
 
 export type WebhookHistoryItem = {
   eventId: string;
-  kind: 'delivery' | 'return';
+  kind: 'delivery' | 'return' | 'cancellation';
   routeId: string;
   routeName: string;
   targetName: string;
@@ -144,13 +145,28 @@ export function queueChange(userId: string, profile: Profile, data: AppData,
       updatedAt: new Date().toISOString(),
     });
   }
+  if (change.kind === 'saveRoute' && change.notifyCancellationAt) {
+    const eventId = newChangeId();
+    pending.push({id: eventId, kind: 'notifyCancellation', routeId: change.value.id,
+      cancelledAt: change.notifyCancellationAt});
+    queuedEvents.push({
+      eventId,
+      kind: 'cancellation',
+      routeId: change.value.id,
+      routeName: change.value.nome,
+      targetName: `Cancelamento de ${change.value.nome}`,
+      occurredAt: change.notifyCancellationAt,
+      state: 'pending',
+      updatedAt: new Date().toISOString(),
+    });
+  }
   writeOffline(userId, {version: 1, profile, data, pending});
   if (queuedEvents.length > 0) {
     const previous = readWebhookStatus(userId);
     writeWebhookStatus(userId, {
       state: 'pending',
       updatedAt: new Date().toISOString(),
-      pending: pending.filter((item) => item.kind === 'notifyDelivery' || item.kind === 'notifyReturn').length,
+      pending: pending.filter((item) => item.kind === 'notifyDelivery' || item.kind === 'notifyReturn' || item.kind === 'notifyCancellation').length,
       history: [...queuedEvents].reverse().concat(previous?.history || []).slice(0, 5),
     });
   }
@@ -164,6 +180,7 @@ async function applyChange(change: PendingChange): Promise<void | WebhookDispatc
     case 'saveRoute': return saveRoute(change.value, change.previousStopIds);
     case 'notifyDelivery': return notifyDelivery(change.routeId, change.stopId, change.completedAt, change.id);
     case 'notifyReturn': return notifyReturn(change.routeId, change.startedAt, change.id, change.remainingDurationSec);
+    case 'notifyCancellation': return notifyCancellation(change.routeId, change.cancelledAt, change.id);
     case 'deleteRoute': return deleteRoute(change.value);
     case 'saveTemplates': return saveTemplates(change.value);
     case 'saveCompany': return saveCompany(change.value);
@@ -176,7 +193,7 @@ export async function flushChanges(userId: string, onProgress?: (remaining: numb
     const snapshot = readOffline(userId);
     const first = snapshot?.pending[0];
     if (!first) break;
-    const isWebhook = first.kind === 'notifyDelivery' || first.kind === 'notifyReturn';
+    const isWebhook = first.kind === 'notifyDelivery' || first.kind === 'notifyReturn' || first.kind === 'notifyCancellation';
     let webhookResult: WebhookDispatchResult | null = null;
     try {
       const result = await applyChange(first);
@@ -190,7 +207,7 @@ export async function flushChanges(userId: string, onProgress?: (remaining: numb
     latest.pending = latest.pending.filter((item) => item.id !== first.id);
     writeOffline(userId, latest);
     if (isWebhook && webhookResult) {
-      const remainingWebhooks = latest.pending.filter((item) => item.kind === 'notifyDelivery' || item.kind === 'notifyReturn').length;
+      const remainingWebhooks = latest.pending.filter((item) => item.kind === 'notifyDelivery' || item.kind === 'notifyReturn' || item.kind === 'notifyCancellation').length;
       const sent = webhookResult.sent === true && webhookResult.skipped !== true;
       writeWebhookStatus(userId, {
         state: sent && remainingWebhooks === 0 ? 'sent' : sent ? 'pending' : 'failed',
@@ -216,10 +233,10 @@ export async function flushChanges(userId: string, onProgress?: (remaining: numb
     writeWebhookStatus(userId, {
       state: 'failed',
       updatedAt: new Date().toISOString(),
-      pending: snapshot.pending.filter((item) => item.kind === 'notifyDelivery' || item.kind === 'notifyReturn').length,
+      pending: snapshot.pending.filter((item) => item.kind === 'notifyDelivery' || item.kind === 'notifyReturn' || item.kind === 'notifyCancellation').length,
       history: readWebhookStatus(userId)?.history || [],
     });
-    const pendingWebhooks = snapshot.pending.filter((item) => item.kind === 'notifyDelivery' || item.kind === 'notifyReturn').length;
+    const pendingWebhooks = snapshot.pending.filter((item) => item.kind === 'notifyDelivery' || item.kind === 'notifyReturn' || item.kind === 'notifyCancellation').length;
     deferredNotices.forEach((notice) => {
       updateWebhookEventState(userId, notice.id, 'failed', 'failed', pendingWebhooks);
     });

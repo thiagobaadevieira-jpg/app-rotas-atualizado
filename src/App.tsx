@@ -78,7 +78,7 @@ export default function App() {
       await flushChanges(id, setPendingCount);
       setWebhookStatus(readWebhookStatus(id));
       const [nextProfile, nextData] = await Promise.all([loadProfile(id), loadAppData()]);
-      if ((readOffline(id)?.pending || []).every((change) => change.kind === 'notifyDelivery' || change.kind === 'notifyReturn')) {
+      if ((readOffline(id)?.pending || []).every((change) => change.kind === 'notifyDelivery' || change.kind === 'notifyReturn' || change.kind === 'notifyCancellation')) {
         cacheData(id, nextProfile, nextData);
         setProfile(nextProfile);
         setRemote(nextData);
@@ -347,7 +347,7 @@ export default function App() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [shouldWatchGeo]);
 
-  const persistRouteUpdate = useCallback((updatedRoute: RoutePlan, completedStopId?: string, sendReturnNotice = false, returnDurationSec?: number) => {
+  const persistRouteUpdate = useCallback((updatedRoute: RoutePlan, completedStopId?: string, sendReturnNotice = false, returnDurationSec?: number, sendCancellationNotice = false) => {
     const previous = remote?.routes.find((r) => r.id === updatedRoute.id);
     if (!remote) return;
     const nextData = {...remote, routes: remote.routes.map((r) => r.id === updatedRoute.id ? updatedRoute : r)};
@@ -357,6 +357,7 @@ export default function App() {
       notifyAt: completedStopId ? updatedRoute.stops.find((s) => s.stopId === completedStopId)?.updatedAt : undefined,
       notifyReturnAt: sendReturnNotice ? updatedRoute.updatedAt : undefined,
       returnDurationSec: sendReturnNotice ? returnDurationSec : undefined,
+      notifyCancellationAt: sendCancellationNotice ? updatedRoute.updatedAt : undefined,
     }).catch(reportError);
   }, [remote, commitChange]);
 
@@ -423,6 +424,20 @@ export default function App() {
         {id: newChangeId(), kind: 'deleteRoute', value: routeId});
     } catch (error) {reportError(error); return;}
     setSelectedRouteId(null);
+  };
+
+  const handleCancelRoute = (routeId: string, sendNotice: boolean) => {
+    const target = routes.find((route) => route.id === routeId);
+    if (!target) return;
+    const updatedAt = new Date().toISOString();
+    setDirectTravel((previous) => previous?.routeId === routeId ? null : previous);
+    persistRouteUpdate({
+      ...target,
+      status: 'finalizada',
+      currentDestinationStopId: null,
+      activeDriverName: null,
+      updatedAt,
+    }, undefined, false, undefined, sendNotice && profile?.id === THIAGO_USER_ID && profile.role === 'admin');
   };
 
   const handleRemoveStop = async (routeId: string, stopId: string) => {
@@ -761,7 +776,7 @@ export default function App() {
   );
 
   const webhookPendingCount = (readOffline(userId)?.pending || [])
-    .filter((change) => change.kind === 'notifyDelivery' || change.kind === 'notifyReturn').length;
+    .filter((change) => change.kind === 'notifyDelivery' || change.kind === 'notifyReturn' || change.kind === 'notifyCancellation').length;
   const webhookBaseDisplay = syncing && webhookPendingCount > 0
     ? {label: 'Enviando', title: 'Webhook sendo encaminhado', color: 'text-[#baff27]', icon: Loader2}
     : webhookStatus?.state === 'failed'
@@ -776,7 +791,7 @@ export default function App() {
     || webhookHistory[0]
     || null;
   const webhookTarget = webhookCurrentItem
-    ? webhookCurrentItem.kind === 'return' ? 'Retorno' : webhookCurrentItem.targetName
+    ? webhookCurrentItem.kind === 'return' ? 'Retorno' : webhookCurrentItem.kind === 'cancellation' ? 'Cancelamento' : webhookCurrentItem.targetName
     : '';
   const webhookDisplay = webhookCurrentItem
     ? syncing && webhookPendingCount > 0
@@ -869,7 +884,7 @@ export default function App() {
                       </div>
                       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-[11px]">
                         <dt className="text-[#6f7a71]">Evento</dt>
-                        <dd className="text-[#bdc7bd]">{item.kind === 'delivery' ? 'Parada concluída' : 'Retorno à empresa'}</dd>
+                        <dd className="text-[#bdc7bd]">{item.kind === 'delivery' ? 'Parada concluída' : item.kind === 'return' ? 'Retorno à empresa' : 'Rota cancelada'}</dd>
                         <dt className="text-[#6f7a71]">Aconteceu</dt>
                         <dd className="text-[#bdc7bd] tabular-nums">{webhookDateTime(item.occurredAt)}</dd>
                         <dt className="text-[#6f7a71]">{item.state === 'sent' ? 'Enviado' : 'Atualizado'}</dt>
@@ -894,7 +909,7 @@ export default function App() {
       <main className="mx-auto max-w-6xl px-4 pt-5 sm:px-6">
         {(!isOnline || pendingCount > 0 || syncing) && <div role="status" className="mb-4 rounded-xl border border-[#ff873f]/40 bg-[#ff873f]/10 px-3 py-2 text-xs text-[#ffad73]">
           {!isOnline ? 'Offline: alterações salvas neste aparelho. Serão sincronizadas ao voltar a conexão.' : syncing ? 'Sincronizando alterações...' :
-            (readOffline(userId)?.pending || []).every((change) => change.kind === 'notifyDelivery' || change.kind === 'notifyReturn')
+            (readOffline(userId)?.pending || []).every((change) => change.kind === 'notifyDelivery' || change.kind === 'notifyReturn' || change.kind === 'notifyCancellation')
               ? `${pendingCount} aviso(s) aguardando envio.`
               : `${pendingCount} alteração(ões) aguardando sincronização.`}
           {isOnline && pendingCount > 0 && !syncing && <button type="button" onClick={() => void syncOfflineData(userId)} className="ml-2 font-bold underline">Tentar agora</button>}
@@ -940,14 +955,15 @@ export default function App() {
                   onRequestGeo={requestGeolocation}
                   onRenameRoute={handleRenameRoute}
                   onDeleteRoute={(id) => void handleDeleteRoute(id)}
+                  onCancelRoute={handleCancelRoute}
                   onRemoveStop={handleRemoveStop}
                   canDelete={profile.role === 'admin'}
                   onOpenAddStops={() => setAddStopsOpen(true)}
                   onSelectDestination={handleSelectDestination}
                   onSelectCompanyDestination={handleSelectCompanyDestination}
-                  onArriveAtStop={handleArriveAtStop}
                   onStopTravel={handleStopTravel}
                   canSendReturnNotice={profile.id === THIAGO_USER_ID && profile.role === 'admin'}
+                  canSendCancellationNotice={profile.id === THIAGO_USER_ID && profile.role === 'admin'}
                   onReorderPendingStops={handleReorderPendingStops}
                   onUpdateStopStatus={requestStopStatusUpdate}
                   onOpenWhatsApp={openWhatsAppFor}

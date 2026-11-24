@@ -95,11 +95,20 @@ body,
   position: fixed;
   inset: 0;
   z-index: 1200;
-  padding-top: calc(var(--app-safe-top) + 8px);
+  padding-top: calc(var(--app-safe-top) + 18px);
   padding-right: 8px;
   padding-bottom: calc(var(--app-safe-bottom) + 8px);
   padding-left: 8px;
   background: #0d100e;
+}
+
+.route-map-collapse,
+.route-map-recalculate {
+  top: calc(var(--app-safe-top) + 22px);
+}
+
+.route-map-order-panel {
+  bottom: calc(var(--app-safe-bottom) + 18px);
 }
 
 @media (max-width: 639px) {
@@ -129,6 +138,13 @@ body,
 /* Discreet light OpenStreetMap layer styling inside dark UI */
 .rota-leaflet-container .leaflet-tile-pane {
   filter: saturate(0.62) contrast(0.94) brightness(1.02);
+}
+
+/* Tailwind's global responsive image rule can collapse Leaflet tiles when the
+   map container changes size (notably when entering fullscreen). */
+.rota-leaflet-container img.leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
 }
 
 .rota-leaflet-container .leaflet-control-attribution {
@@ -195,6 +211,12 @@ body,
   color: #baff27;
 }
 
+.rota-stop-label--manual {
+  border-color: #baff27;
+  color: #baff27;
+  background: rgba(13, 16, 14, 0.98);
+}
+
 .rota-stop-dot {
   width: 24px;
   height: 24px;
@@ -219,4 +241,10 @@ body,
   background: #baff27;
   color: #0d100e;
   box-shadow: 0 0 0 3px rgba(186, 255, 39, 0.35), 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.rota-stop-dot--manual {
+  background: #baff27;
+  color: #0d100e;
+  box-shadow: 0 0 0 4px rgba(186, 255, 39, 0.3), 0 2px 8px rgba(0, 0, 0, 0.5);
 }

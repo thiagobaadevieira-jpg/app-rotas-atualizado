@@ -139,7 +139,7 @@ export function SettingsModal({isOpen, company, canManageWebhook, onClose, onSav
           <div>
             <h3 className="text-sm font-bold">Avisos de entrega</h3>
             <p className="mt-1 text-xs text-[#9aa59c]">Cadastre o webhook do Cursor. A chave fica protegida no Supabase Vault.</p>
-            <p className="mt-1 text-xs text-[#baff27]">Ao concluir, escolha se envia o aviso da entrega. O aviso de retorno é escolhido ao abrir o Maps da empresa.</p>
+            <p className="mt-1 text-xs text-[#baff27]">Ao concluir, escolha se envia o aviso da entrega. O retorno à empresa é avisado automaticamente ao abrir o Maps; no cancelamento, você escolhe se envia o aviso.</p>
           </div>
           <div>
             <label htmlFor="delivery-webhook-url" className="mb-1.5 block text-xs font-semibold">URL do webhook</label>

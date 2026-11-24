@@ -11,6 +11,8 @@ export interface AppMapProps {
   pickedPosition?: Coordinates | null;
   onPickCoordinates?: (coords: Coordinates) => void;
   onSelectStop?: (stopId: string) => void;
+  manualOrderIds?: string[];
+  manualOrderingActive?: boolean;
   className?: string;
 }
 
@@ -35,6 +37,8 @@ export function LeafletMap({
   pickedPosition = null,
   onPickCoordinates,
   onSelectStop,
+  manualOrderIds = [],
+  manualOrderingActive = false,
   className = 'h-64 w-full',
 }: AppMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -108,17 +112,27 @@ export function LeafletMap({
         const isPending = stop.status === 'pendente';
         const isActive = stop.stopId === currentDestinationStopId && isPending;
         if (isPending) pendingIdx += 1;
-        const labelNum = isPending ? String(pendingIdx) : stop.status === 'concluida' ? '✓' : '✕';
+        const manualIndex = manualOrderIds.indexOf(stop.stopId);
+        const labelNum = isPending
+          ? manualOrderingActive
+            ? manualIndex >= 0 ? String(manualIndex + 1) : '•'
+            : String(pendingIdx)
+          : stop.status === 'concluida' ? '✓' : '✕';
+        const isManuallySelected = manualOrderingActive && manualIndex >= 0;
 
         boundsPoints.push([stop.lat, stop.lng]);
 
-        const labelCls = isActive
+        const labelCls = isManuallySelected
+          ? 'rota-stop-label rota-stop-label--manual'
+          : isActive
           ? 'rota-stop-label rota-stop-label--active'
           : isPending
           ? 'rota-stop-label'
           : 'rota-stop-label rota-stop-label--done';
 
-        const dotCls = isActive
+        const dotCls = isManuallySelected
+          ? 'rota-stop-dot rota-stop-dot--manual'
+          : isActive
           ? 'rota-stop-dot rota-stop-dot--active'
           : isPending
           ? 'rota-stop-dot'
@@ -152,9 +166,9 @@ export function LeafletMap({
       if (boundsPoints.length > 0 && hasFittedRef.current !== fitKey) {
         hasFittedRef.current = fitKey;
         if (boundsPoints.length === 1) {
-          map.setView(boundsPoints[0], 14);
+          map.setView(boundsPoints[0], 14, {animate: false});
         } else {
-          map.fitBounds(L.latLngBounds(boundsPoints), {padding: [42, 42], maxZoom: 15});
+          map.fitBounds(L.latLngBounds(boundsPoints), {padding: [42, 42], maxZoom: 15, animate: false});
         }
       }
     } else if (mode === 'pick') {
@@ -174,11 +188,11 @@ export function LeafletMap({
         const fitKey = `pick:${pickedPosition.lat.toFixed(4)},${pickedPosition.lng.toFixed(4)}`;
         if (hasFittedRef.current !== fitKey) {
           hasFittedRef.current = fitKey;
-          map.setView([pickedPosition.lat, pickedPosition.lng], 15);
+            map.setView([pickedPosition.lat, pickedPosition.lng], 15, {animate: false});
         }
       } else if (userPosition && hasFittedRef.current === '') {
         hasFittedRef.current = 'pick:user';
-        map.setView([userPosition.lat, userPosition.lng], 13);
+        map.setView([userPosition.lat, userPosition.lng], 13, {animate: false});
       }
 
     }
@@ -189,6 +203,8 @@ export function LeafletMap({
     currentDestinationStopId,
     userPosition,
     pickedPosition,
+    manualOrderIds,
+    manualOrderingActive,
   ]);
 
   useEffect(() => {

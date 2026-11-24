@@ -10,6 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(() => {
   return {
+    cacheDir: '.vite-cache',
     plugins: [
       react(),
       tailwindcss(),
@@ -66,6 +67,9 @@ export default defineConfig(() => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          cleanupOutdatedCaches: true,
+          clientsClaim: true,
+          skipWaiting: true,
           navigateFallback: '/index.html',
           navigateFallbackDenylist: [/^\/api\//, /^\/ws/],
           runtimeCaching: [
@@ -103,8 +107,8 @@ export default defineConfig(() => {
               options: {
                 cacheName: 'osm-tiles-cache',
                 expiration: {
-                  maxEntries: 180,
-                  maxAgeSeconds: 60 * 60 * 24 * 7,
+                  maxEntries: 500,
+                  maxAgeSeconds: 60 * 60 * 24 * 30,
                 },
                 cacheableResponse: {
                   statuses: [0, 200],

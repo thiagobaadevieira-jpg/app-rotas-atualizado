@@ -39,3 +39,9 @@ export function notifyReturn(routeId: string, startedAt: string, eventId: string
   });
 }
 
+export function notifyCancellation(routeId: string, cancelledAt: string, eventId: string) {
+  return call<{sent?: boolean; skipped?: boolean}>({
+    action: 'notify_cancel', routeId, cancelledAt, eventId,
+  });
+}
+
