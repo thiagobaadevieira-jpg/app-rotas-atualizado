@@ -707,6 +707,7 @@ export default function App() {
 
   const requestStopStatusUpdate = (routeId: string, stopId: string,
     status: 'pendente' | 'concluida' | 'nao_entregue') => {
+    if (status === 'nao_entregue') return;
     const stop = routes.find((route) => route.id === routeId)?.stops.find((item) => item.stopId === stopId);
     if (status === 'concluida' && stop?.status !== 'concluida' && profile?.id === THIAGO_USER_ID && profile.role === 'admin') {
       setCompletionToConfirm({routeId, stopId, name: stop?.nome || 'esta entrega'});
