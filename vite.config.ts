@@ -72,7 +72,7 @@ export default defineConfig(() => {
           clientsClaim: true,
           skipWaiting: true,
           navigateFallback: '/index.html',
-          navigateFallbackDenylist: [/^\/api\//, /^\/ws/],
+          navigateFallbackDenylist: [/^\/api\//, /^\/ws/, /^\/teste-maps\.html$/],
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

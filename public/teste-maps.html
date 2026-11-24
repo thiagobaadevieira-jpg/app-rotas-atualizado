@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Teste Google Maps — Barra Velha, SC</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0d100e;
+        --card: #151a16;
+        --line: #394539;
+        --text: #f3f5f2;
+        --muted: #bdc7bd;
+        --accent: #baff27;
+        --ink: #0d100e;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: max(20px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      main {
+        width: min(100%, 32rem);
+        margin: 0 auto;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.5rem;
+        line-height: 1.2;
+      }
+      .destino {
+        margin: 0 0 20px;
+        color: var(--muted);
+        font-size: 1rem;
+      }
+      .opcao {
+        margin: 0 0 16px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--card);
+      }
+      a.botao {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 64px;
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: var(--accent);
+        color: var(--ink);
+        font-size: 1.125rem;
+        font-weight: 800;
+        line-height: 1.25;
+        text-align: center;
+        text-decoration: none;
+      }
+      a.botao:active { transform: scale(0.98); }
+      p.nota {
+        margin: 10px 2px 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Teste do Google Maps</h1>
+      <p class="destino">Destino: Barra Velha, SC. Toque em cada botão no iPhone e veja se a navegação curva a curva abre direto.</p>
+
+      <section class="opcao">
+        <a class="botao" href="comgooglemaps://?daddr=Barra+Velha,+SC&amp;directionsmode=driving">Google Maps (app) - navegação direta</a>
+        <p class="nota">Deve abrir o aplicativo Google Maps já em navegação de carro até Barra Velha, sem passar pela tela de prévia da rota.</p>
+      </section>
+
+      <section class="opcao">
+        <a class="botao" href="https://www.google.com/maps/dir/?api=1&amp;destination=Barra+Velha,+SC&amp;travelmode=driving&amp;dir_action=navigate">Google Maps (link universal)</a>
+        <p class="nota">Link https: com o app instalado, deve cair na navegação. Sem o app, abre o site do Google Maps na mesma rota.</p>
+      </section>
+
+      <section class="opcao">
+        <a class="botao" href="comgooglemaps://?saddr=&amp;daddr=Barra+Velha,+SC&amp;directionsmode=driving">Google Maps (app, com origem atual)</a>
+        <p class="nota">Igual ao primeiro, mas pede a origem vazia para o app usar a sua localização atual como ponto de partida.</p>
+      </section>
+    </main>
+  </body>
+</html>
