@@ -21,11 +21,11 @@ import {
 import {Reorder, useDragControls} from 'motion/react';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import type {FormEvent} from 'react';
-import {createPortal} from 'react-dom';
 import {COMPANY_DESTINATION_ID, getArrivedStopId} from '../types.ts';
 import type {CompanyLocation, Coordinates, Marmoraria, RoutePlan, RouteStop} from '../types.ts';
 import {
   buildChunkedGoogleMapsRouteLinks,
+  buildSingleStopGoogleMapsNavigationUrls,
   buildSingleStopGoogleMapsUrl,
   fetchRouteLegEstimates,
   formatDistancePt,
@@ -45,7 +45,6 @@ interface RouteDetailViewProps {
   onRenameRoute: (routeId: string, newName: string) => void;
   onDeleteRoute: (routeId: string) => void;
   onCancelRoute: (routeId: string, sendNotice: boolean) => void;
-  onCancelStop: (routeId: string, stopId: string, sendNotice: boolean) => void;
   onRemoveStop: (routeId: string, stopId: string) => Promise<void>;
   canDelete?: boolean;
   onOpenAddStops: () => void;
@@ -80,7 +79,6 @@ interface DraggableStopItemProps {
   canDelete: boolean;
   onRequestMaps: (stop: RouteStop) => void;
   onRequestRemove: (stop: RouteStop) => void;
-  onRequestCancelStop: (stop: RouteStop) => void;
   onUpdateStopStatus: (
     routeId: string,
     stopId: string,
@@ -104,7 +102,6 @@ function DraggableStopItem({
   canDelete,
   onRequestMaps,
   onRequestRemove,
-  onRequestCancelStop,
   onUpdateStopStatus,
   onOpenWhatsApp,
   onDragStart,
@@ -228,12 +225,8 @@ function DraggableStopItem({
           </button>
           <button
             type="button"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onRequestCancelStop(stop);
-            }}
-            aria-label={`Cancelar parada ${stop.nome}`}
+            onClick={() => onUpdateStopStatus(routeId, stop.stopId, 'nao_entregue')}
+            aria-label={`Marcar ${stop.nome} como não entregue`}
             title="Não entregue"
             className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg bg-[#4a2d1c] text-[#ff873f] hover:bg-[#ff873f] hover:text-[#0d100e]"
           >
@@ -256,7 +249,6 @@ export function RouteDetailView({
   onRenameRoute,
   onDeleteRoute,
   onCancelRoute,
-  onCancelStop,
   onRemoveStop,
   canDelete = true,
   onOpenAddStops,
@@ -272,11 +264,7 @@ export function RouteDetailView({
   const [isRenaming, setIsRenaming] = useState(false);
   const [draftName, setDraftName] = useState(route.nome);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [cancelPrompt, setCancelPrompt] = useState<null | 'route' | 'webhook'>(null);
-  const cancelChoiceLock = useRef(false);
-  const [stopToCancel, setStopToCancel] = useState<RouteStop | null>(null);
-  const [stopCancelStep, setStopCancelStep] = useState<'confirm' | 'webhook'>('confirm');
-  const stopCancelLock = useRef(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const [routeMenuOpen, setRouteMenuOpen] = useState(false);
   const [stopToRemove, setStopToRemove] = useState<RouteStop | null>(null);
   const [removingStop, setRemovingStop] = useState(false);
@@ -369,6 +357,33 @@ export function RouteDetailView({
 
   const requestMaps = (stop: RouteStop, url = buildSingleStopGoogleMapsUrl(stop, userPosition)) => {
     setMapsConfirmation({name: stop.nome, url, stopId: stop.stopId});
+  };
+
+  const openStopMaps = (stop: RouteStop) => {
+    onSelectDestination(route.id, stop.stopId, true);
+    const {appUrl, webUrl} = buildSingleStopGoogleMapsNavigationUrls(stop, userPosition);
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    if (!isIOS) {
+      window.location.assign(webUrl);
+      return;
+    }
+
+    let appOpened = false;
+    const handleVisibilityChange = () => {
+      if (!document.hidden) return;
+      appOpened = true;
+      window.clearTimeout(fallbackTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+    const fallbackTimer = window.setTimeout(() => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (!appOpened && !document.hidden) window.location.assign(webUrl);
+    }, 1100);
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.location.assign(appUrl);
   };
 
   const confirmRemoveStop = async () => {
@@ -589,8 +604,7 @@ export function RouteDetailView({
                             type="button"
                             onClick={() => {
                               setRouteMenuOpen(false);
-                              cancelChoiceLock.current = false;
-                              setCancelPrompt('route');
+                              setConfirmCancel(true);
                             }}
                             className="flex min-h-[40px] w-full items-center gap-2 rounded-lg px-3 text-left text-xs font-semibold text-[#ff873f] hover:bg-[#ff873f]/10"
                           >
@@ -861,14 +875,8 @@ export function RouteDetailView({
                           incomingLeg={incomingLeg}
                           routeId={route.id}
                           canDelete={canDelete}
-                          onRequestMaps={requestMaps}
+              onRequestMaps={openStopMaps}
                           onRequestRemove={(item) => {setRemoveError(null); setStopToRemove(item);}}
-                          onRequestCancelStop={(stop) => {
-                            if (stop.status !== 'pendente') return;
-                            stopCancelLock.current = false;
-                            setStopToCancel(stop);
-                            setStopCancelStep('confirm');
-                          }}
                           onUpdateStopStatus={onUpdateStopStatus}
                           onOpenWhatsApp={onOpenWhatsApp}
                           onDragStart={(id) => {
@@ -967,91 +975,22 @@ export function RouteDetailView({
             </>
           )}
         </div>
-      {cancelPrompt === 'route' && (
-        <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (event.target === event.currentTarget) setCancelPrompt(null);}}>
+      {confirmCancel && (
+        <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (event.target === event.currentTarget) setConfirmCancel(false);}}>
           <div role="dialog" aria-modal="true" aria-labelledby="confirm-cancel-route-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
             <h2 id="confirm-cancel-route-title" className="text-lg font-bold text-[#f3f5f2]">Cancelar {route.nome}?</h2>
             <p className="mt-2 text-sm text-[#bdc7bd]">A rota será encerrada e as paradas não concluídas continuarão registradas no histórico.</p>
             <div className="mt-5 flex flex-col gap-2">
-              <button type="button" onClick={() => {
-                if (canSendCancellationNotice) {setCancelPrompt('webhook'); return;}
-                if (cancelChoiceLock.current) return;
-                cancelChoiceLock.current = true;
-                onCancelRoute(route.id, false);
-                setCancelPrompt(null);
-              }} className="min-h-[46px] rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]">Confirmar cancelamento</button>
-              <button type="button" onClick={() => setCancelPrompt(null)} className="min-h-[46px] rounded-xl border border-[#394539] px-4 text-sm font-semibold text-[#f3f5f2]">Não cancelar</button>
+              {canSendCancellationNotice && (
+                <button type="button" onClick={() => {onCancelRoute(route.id, true); setConfirmCancel(false);}}
+                  className="min-h-[46px] rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]">Cancelar rota e enviar aviso</button>
+              )}
+              <button type="button" onClick={() => {onCancelRoute(route.id, false); setConfirmCancel(false);}}
+                className="min-h-[46px] rounded-xl border border-[#394539] px-4 text-sm font-semibold text-[#f3f5f2]">Cancelar sem enviar aviso</button>
+              <button type="button" onClick={() => setConfirmCancel(false)} className="min-h-[42px] text-sm text-[#9aa59c]">Voltar</button>
             </div>
           </div>
         </div>
-      )}
-      {cancelPrompt === 'webhook' && (
-        <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation">
-          <div role="dialog" aria-modal="true" aria-labelledby="confirm-cancel-webhook-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
-            <h2 id="confirm-cancel-webhook-title" className="text-lg font-bold text-[#f3f5f2]">Enviar aviso de cancelamento?</h2>
-            <p className="mt-2 text-sm text-[#bdc7bd]">A rota {route.nome} será cancelada de qualquer forma. Deseja enviar o aviso pelo WhatsApp?</p>
-            <div className="mt-5 flex flex-col gap-2">
-              <button type="button" onClick={() => {
-                if (cancelChoiceLock.current) return;
-                cancelChoiceLock.current = true;
-                onCancelRoute(route.id, true);
-                setCancelPrompt(null);
-              }} className="inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-[#baff27] px-4 text-sm font-bold text-[#0d100e]">
-                <Check className="h-4 w-4" />Enviar aviso
-              </button>
-              <button type="button" onClick={() => {
-                if (cancelChoiceLock.current) return;
-                cancelChoiceLock.current = true;
-                onCancelRoute(route.id, false);
-                setCancelPrompt(null);
-              }} className="min-h-[46px] rounded-xl border border-[#394539] px-4 text-sm font-semibold text-[#f3f5f2]">Não enviar</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {stopToCancel && createPortal(
-        stopCancelStep === 'confirm' ? (
-          <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[2000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (event.target === event.currentTarget) setStopToCancel(null);}}>
-            <div role="dialog" aria-modal="true" aria-labelledby="confirm-cancel-stop-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
-              <h2 id="confirm-cancel-stop-title" className="text-lg font-bold text-[#f3f5f2]">Cancelar parada {stopToCancel.nome}?</h2>
-              <p className="mt-2 text-sm text-[#bdc7bd]">A parada sai da lista de pendentes e fica registrada como não entregue.</p>
-              <div className="mt-5 flex flex-col gap-2">
-                <button type="button" onClick={() => {
-                  if (canSendCancellationNotice) {setStopCancelStep('webhook'); return;}
-                  if (stopCancelLock.current) return;
-                  stopCancelLock.current = true;
-                  onCancelStop(route.id, stopToCancel.stopId, false);
-                  setStopToCancel(null);
-                }} className="min-h-[46px] rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]">Confirmar cancelamento</button>
-                <button type="button" onClick={() => setStopToCancel(null)} className="min-h-[46px] rounded-xl border border-[#394539] px-4 text-sm font-semibold text-[#f3f5f2]">Não cancelar</button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[2000] flex items-center justify-center bg-black/75 px-4" role="presentation">
-            <div role="dialog" aria-modal="true" aria-labelledby="confirm-cancel-stop-webhook-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
-              <h2 id="confirm-cancel-stop-webhook-title" className="text-lg font-bold text-[#f3f5f2]">Enviar aviso de cancelamento?</h2>
-              <p className="mt-2 text-sm text-[#bdc7bd]">A parada {stopToCancel.nome} será cancelada de qualquer forma. Deseja enviar o aviso pelo WhatsApp?</p>
-              <div className="mt-5 flex flex-col gap-2">
-                <button type="button" onClick={() => {
-                  if (stopCancelLock.current) return;
-                  stopCancelLock.current = true;
-                  onCancelStop(route.id, stopToCancel.stopId, true);
-                  setStopToCancel(null);
-                }} className="inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-[#baff27] px-4 text-sm font-bold text-[#0d100e]">
-                  <Check className="h-4 w-4" />Enviar aviso
-                </button>
-                <button type="button" onClick={() => {
-                  if (stopCancelLock.current) return;
-                  stopCancelLock.current = true;
-                  onCancelStop(route.id, stopToCancel.stopId, false);
-                  setStopToCancel(null);
-                }} className="min-h-[46px] rounded-xl border border-[#394539] px-4 text-sm font-semibold text-[#f3f5f2]">Não enviar</button>
-              </div>
-            </div>
-          </div>
-        ),
-        document.body,
       )}
       {stopToRemove && (
         <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (!removingStop && event.target === event.currentTarget) setStopToRemove(null);}}>

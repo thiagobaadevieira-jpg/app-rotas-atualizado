@@ -1,5 +1,5 @@
 import {Check, Search, X} from 'lucide-react';
-import {useEffect, useMemo, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import type {Marmoraria, RouteStop} from '../types.ts';
 
 interface AddStopsModalProps {
@@ -23,6 +23,7 @@ export function AddStopsModal({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const queryInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -85,12 +86,27 @@ export function AddStopsModal({
         <div className="relative mt-4 shrink-0">
           <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[#7b877e]" />
           <input
+            ref={queryInputRef}
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Filtrar por nome ou cidade..."
-            className="min-h-[44px] w-full rounded-xl border border-[#29332a] bg-[#0d100e] pr-4 pl-10 text-sm text-[#f3f5f2] placeholder-[#5d6b5f] focus:border-[#baff27] focus:outline-none"
+            className="min-h-[44px] w-full rounded-xl border border-[#29332a] bg-[#0d100e] pr-12 pl-10 text-sm text-[#f3f5f2] placeholder-[#5d6b5f] focus:border-[#baff27] focus:outline-none"
           />
+          {query && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery('');
+                queryInputRef.current?.focus({preventScroll: true});
+              }}
+              aria-label="Limpar pesquisa"
+              title="Limpar pesquisa"
+              className="absolute top-1/2 right-1.5 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-[#baff27] hover:bg-[#baff27]/10"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         <div className="mt-3 flex-1 overflow-y-auto pr-1">

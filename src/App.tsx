@@ -16,8 +16,6 @@ import {useOnlineStatus} from './hooks/useOnlineStatus.ts';
 import {useRouteDistances} from './hooks/useRouteDistances.ts';
 import {loadAppData, loadProfile, supabase} from './lib/supabase.ts';
 import type {AppData, Profile} from './lib/supabase.ts';
-import {buildCancellationNotice, buildStopCancellationNotice} from './lib/cancellationNotice.ts';
-import type {CancellationNotice} from './lib/cancellationNotice.ts';
 import {cacheData, clearLastOfflineUser, flushChanges, lastOfflineUser, newChangeId, queueChange, readOffline, readWebhookStatus} from './lib/offlineStore.ts';
 import type {PendingChange, WebhookDispatchStatus, WebhookHistoryItem} from './lib/offlineStore.ts';
 import {arrivedDestinationId, COMPANY_DESTINATION_ID, getArrivedStopId} from './types.ts';
@@ -34,6 +32,32 @@ import {extractFirstUrl, isGoogleMapsUrl, parseCoordinatesInput} from './utils/g
 import {collectionsFromRoutes} from './utils/collections.ts';
 
 const THIAGO_USER_ID = '1e5dc7d4-d1a1-47c4-b06b-21b2021b77ec';
+const GEO_POSITION_CACHE_KEY = 'rota-italik:last-position:v1';
+const GEO_POSITION_CACHE_MAX_AGE = 30 * 60 * 1000;
+
+const readCachedPosition = (): Coordinates | null => {
+  try {
+    const raw = localStorage.getItem(GEO_POSITION_CACHE_KEY);
+    if (!raw) return null;
+    const cached = JSON.parse(raw) as Coordinates & {savedAt?: number};
+    if (!Number.isFinite(cached.lat) || !Number.isFinite(cached.lng) ||
+        !cached.savedAt || Date.now() - cached.savedAt > GEO_POSITION_CACHE_MAX_AGE) {
+      localStorage.removeItem(GEO_POSITION_CACHE_KEY);
+      return null;
+    }
+    return {lat: cached.lat, lng: cached.lng};
+  } catch {
+    return null;
+  }
+};
+
+const cachePosition = (position: Coordinates) => {
+  try {
+    localStorage.setItem(GEO_POSITION_CACHE_KEY, JSON.stringify({...position, savedAt: Date.now()}));
+  } catch {
+    // Some private browsing modes block storage; the in-memory position still works.
+  }
+};
 
 const webhookTime = (value?: string) => {
   if (!value) return '';
@@ -233,8 +257,10 @@ export default function App() {
   };
 
   // Browser Geolocation state
-  const [userPosition, setUserPosition] = useState<Coordinates | null>(null);
+  const [userPosition, setUserPosition] = useState<Coordinates | null>(() => readCachedPosition());
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [geoPermissionGranted, setGeoPermissionGranted] = useState(false);
+  const geoRequestInFlightRef = useRef(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const company = remote?.company || null;
   const {distances: routeDistances, loading: distancesLoading} = useRouteDistances(routes, company);
@@ -318,25 +344,61 @@ export default function App() {
       setGeoError('Seu navegador não suporta geolocalização.');
       return;
     }
+    if (geoRequestInFlightRef.current) return;
+    geoRequestInFlightRef.current = true;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setUserPosition({lat: pos.coords.latitude, lng: pos.coords.longitude});
+        geoRequestInFlightRef.current = false;
+        const coords = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+        setUserPosition(coords);
+        cachePosition(coords);
+        setGeoPermissionGranted(true);
         setGeoError(null);
       },
       () => {
+        geoRequestInFlightRef.current = false;
+        setGeoPermissionGranted(false);
         setGeoError('Permissão de localização recusada ou indisponível.');
       },
-      {enableHighAccuracy: true, timeout: 10000}
+      {enableHighAccuracy: true, maximumAge: 60000, timeout: 10000}
     );
   }, []);
 
   useEffect(() => {
-    if (!shouldWatchGeo || !('geolocation' in navigator)) return;
+    if (!shouldWatchGeo || !('permissions' in navigator)) return;
+    let disposed = false;
+    let permissionStatus: PermissionStatus | null = null;
+
+    void navigator.permissions.query({name: 'geolocation'}).then((status) => {
+      if (disposed) return;
+      permissionStatus = status;
+      const syncPermission = () => {
+        if (disposed) return;
+        setGeoPermissionGranted(status.state === 'granted');
+        if (status.state === 'denied') {
+          setGeoError('Permissão de localização bloqueada no navegador.');
+        }
+      };
+      syncPermission();
+      status.onchange = syncPermission;
+    }).catch(() => {
+      // Safari without Permissions API support waits for the explicit GPS button.
+    });
+
+    return () => {
+      disposed = true;
+      if (permissionStatus) permissionStatus.onchange = null;
+    };
+  }, [shouldWatchGeo]);
+
+  useEffect(() => {
+    if (!shouldWatchGeo || !geoPermissionGranted || !('geolocation' in navigator)) return;
 
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const coords = {lat: pos.coords.latitude, lng: pos.coords.longitude};
         setUserPosition(coords);
+        cachePosition(coords);
         setGeoError(null);
 
       },
@@ -347,9 +409,9 @@ export default function App() {
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [shouldWatchGeo]);
+  }, [shouldWatchGeo, geoPermissionGranted]);
 
-  const persistRouteUpdate = useCallback((updatedRoute: RoutePlan, completedStopId?: string, sendReturnNotice = false, returnDurationSec?: number, sendCancellationNotice = false, cancellationNotice?: CancellationNotice) => {
+  const persistRouteUpdate = useCallback((updatedRoute: RoutePlan, completedStopId?: string, sendReturnNotice = false, returnDurationSec?: number, sendCancellationNotice = false) => {
     const previous = remote?.routes.find((r) => r.id === updatedRoute.id);
     if (!remote) return;
     const nextData = {...remote, routes: remote.routes.map((r) => r.id === updatedRoute.id ? updatedRoute : r)};
@@ -360,7 +422,6 @@ export default function App() {
       notifyReturnAt: sendReturnNotice ? updatedRoute.updatedAt : undefined,
       returnDurationSec: sendReturnNotice ? returnDurationSec : undefined,
       notifyCancellationAt: sendCancellationNotice ? updatedRoute.updatedAt : undefined,
-      cancellationNotice: sendCancellationNotice ? cancellationNotice : undefined,
     }).catch(reportError);
   }, [remote, commitChange]);
 
@@ -433,7 +494,6 @@ export default function App() {
     const target = routes.find((route) => route.id === routeId);
     if (!target) return;
     const updatedAt = new Date().toISOString();
-    const allowNotice = sendNotice && profile?.id === THIAGO_USER_ID && profile.role === 'admin';
     setDirectTravel((previous) => previous?.routeId === routeId ? null : previous);
     persistRouteUpdate({
       ...target,
@@ -441,7 +501,7 @@ export default function App() {
       currentDestinationStopId: null,
       activeDriverName: null,
       updatedAt,
-    }, undefined, false, undefined, allowNotice, allowNotice ? buildCancellationNotice(target, routes) : undefined);
+    }, undefined, false, undefined, sendNotice && profile?.id === THIAGO_USER_ID && profile.role === 'admin');
   };
 
   const handleRemoveStop = async (routeId: string, stopId: string) => {
@@ -649,21 +709,11 @@ export default function App() {
     });
   };
 
-  const handleCancelStop = (routeId: string, stopId: string, sendNotice: boolean) => {
-    const target = routes.find((route) => route.id === routeId);
-    const stop = target?.stops.find((item) => item.stopId === stopId);
-    if (!target || !stop || stop.status !== 'pendente') return;
-    const allowNotice = sendNotice && profile?.id === THIAGO_USER_ID && profile.role === 'admin';
-    handleUpdateStopStatus(routeId, stopId, 'nao_entregue', false,
-      allowNotice ? buildStopCancellationNotice(target, stopId) ?? undefined : undefined);
-  };
-
   const handleUpdateStopStatus = (
     routeId: string,
     stopId: string,
     status: 'pendente' | 'concluida' | 'nao_entregue',
-    sendNotice = false,
-    cancellationNotice?: CancellationNotice
+    sendNotice = false
   ) => {
     const target = routes.find((r) => r.id === routeId);
     if (!target) return;
@@ -689,11 +739,6 @@ export default function App() {
       setDirectTravel((prev) => (prev?.routeId === routeId ? null : prev));
     }
 
-    const sendCancellation = Boolean(cancellationNotice)
-      && status === 'nao_entregue'
-      && target.stops.find((s) => s.stopId === stopId)?.status !== 'nao_entregue'
-      && profile?.id === THIAGO_USER_ID
-      && profile.role === 'admin';
     void persistRouteUpdate({
       ...target,
       stops: [...pending, ...finished],
@@ -701,13 +746,11 @@ export default function App() {
       status: nextStatus,
       updatedAt: now,
     }, sendNotice && profile?.id === THIAGO_USER_ID && profile.role === 'admin' && status === 'concluida' &&
-      target.stops.find((s) => s.stopId === stopId)?.status !== 'concluida' ? stopId : undefined,
-      false, undefined, sendCancellation, sendCancellation ? cancellationNotice : undefined);
+      target.stops.find((s) => s.stopId === stopId)?.status !== 'concluida' ? stopId : undefined);
   };
 
   const requestStopStatusUpdate = (routeId: string, stopId: string,
     status: 'pendente' | 'concluida' | 'nao_entregue') => {
-    if (status === 'nao_entregue') return;
     const stop = routes.find((route) => route.id === routeId)?.stops.find((item) => item.stopId === stopId);
     if (status === 'concluida' && stop?.status !== 'concluida' && profile?.id === THIAGO_USER_ID && profile.role === 'admin') {
       setCompletionToConfirm({routeId, stopId, name: stop?.nome || 'esta entrega'});
@@ -905,7 +948,7 @@ export default function App() {
                       </div>
                       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-[11px]">
                         <dt className="text-[#6f7a71]">Evento</dt>
-                        <dd className="text-[#bdc7bd]">{item.kind === 'delivery' ? 'Parada concluída' : item.kind === 'return' ? 'Retorno à empresa' : (item.eventLabel || 'Rota cancelada')}</dd>
+                        <dd className="text-[#bdc7bd]">{item.kind === 'delivery' ? 'Parada concluída' : item.kind === 'return' ? 'Retorno à empresa' : 'Rota cancelada'}</dd>
                         <dt className="text-[#6f7a71]">Aconteceu</dt>
                         <dd className="text-[#bdc7bd] tabular-nums">{webhookDateTime(item.occurredAt)}</dd>
                         <dt className="text-[#6f7a71]">{item.state === 'sent' ? 'Enviado' : 'Atualizado'}</dt>
@@ -977,7 +1020,6 @@ export default function App() {
                   onRenameRoute={handleRenameRoute}
                   onDeleteRoute={(id) => void handleDeleteRoute(id)}
                   onCancelRoute={handleCancelRoute}
-                  onCancelStop={handleCancelStop}
                   onRemoveStop={handleRemoveStop}
                   canDelete={profile.role === 'admin'}
                   onOpenAddStops={() => setAddStopsOpen(true)}
