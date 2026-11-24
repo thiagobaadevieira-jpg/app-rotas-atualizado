@@ -16,6 +16,8 @@ import {useOnlineStatus} from './hooks/useOnlineStatus.ts';
 import {useRouteDistances} from './hooks/useRouteDistances.ts';
 import {loadAppData, loadProfile, supabase} from './lib/supabase.ts';
 import type {AppData, Profile} from './lib/supabase.ts';
+import {buildCancellationNotice} from './lib/cancellationNotice.ts';
+import type {CancellationNotice} from './lib/cancellationNotice.ts';
 import {cacheData, clearLastOfflineUser, flushChanges, lastOfflineUser, newChangeId, queueChange, readOffline, readWebhookStatus} from './lib/offlineStore.ts';
 import type {PendingChange, WebhookDispatchStatus, WebhookHistoryItem} from './lib/offlineStore.ts';
 import {arrivedDestinationId, COMPANY_DESTINATION_ID, getArrivedStopId} from './types.ts';
@@ -347,7 +349,7 @@ export default function App() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [shouldWatchGeo]);
 
-  const persistRouteUpdate = useCallback((updatedRoute: RoutePlan, completedStopId?: string, sendReturnNotice = false, returnDurationSec?: number, sendCancellationNotice = false) => {
+  const persistRouteUpdate = useCallback((updatedRoute: RoutePlan, completedStopId?: string, sendReturnNotice = false, returnDurationSec?: number, sendCancellationNotice = false, cancellationNotice?: CancellationNotice) => {
     const previous = remote?.routes.find((r) => r.id === updatedRoute.id);
     if (!remote) return;
     const nextData = {...remote, routes: remote.routes.map((r) => r.id === updatedRoute.id ? updatedRoute : r)};
@@ -358,6 +360,7 @@ export default function App() {
       notifyReturnAt: sendReturnNotice ? updatedRoute.updatedAt : undefined,
       returnDurationSec: sendReturnNotice ? returnDurationSec : undefined,
       notifyCancellationAt: sendCancellationNotice ? updatedRoute.updatedAt : undefined,
+      cancellationNotice: sendCancellationNotice ? cancellationNotice : undefined,
     }).catch(reportError);
   }, [remote, commitChange]);
 
@@ -430,6 +433,7 @@ export default function App() {
     const target = routes.find((route) => route.id === routeId);
     if (!target) return;
     const updatedAt = new Date().toISOString();
+    const allowNotice = sendNotice && profile?.id === THIAGO_USER_ID && profile.role === 'admin';
     setDirectTravel((previous) => previous?.routeId === routeId ? null : previous);
     persistRouteUpdate({
       ...target,
@@ -437,7 +441,7 @@ export default function App() {
       currentDestinationStopId: null,
       activeDriverName: null,
       updatedAt,
-    }, undefined, false, undefined, sendNotice && profile?.id === THIAGO_USER_ID && profile.role === 'admin');
+    }, undefined, false, undefined, allowNotice, allowNotice ? buildCancellationNotice(target, routes) : undefined);
   };
 
   const handleRemoveStop = async (routeId: string, stopId: string) => {

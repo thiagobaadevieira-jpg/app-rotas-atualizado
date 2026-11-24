@@ -263,7 +263,8 @@ export function RouteDetailView({
   const [isRenaming, setIsRenaming] = useState(false);
   const [draftName, setDraftName] = useState(route.nome);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelPrompt, setCancelPrompt] = useState<null | 'route' | 'webhook'>(null);
+  const cancelChoiceLock = useRef(false);
   const [routeMenuOpen, setRouteMenuOpen] = useState(false);
   const [stopToRemove, setStopToRemove] = useState<RouteStop | null>(null);
   const [removingStop, setRemovingStop] = useState(false);
@@ -576,7 +577,8 @@ export function RouteDetailView({
                             type="button"
                             onClick={() => {
                               setRouteMenuOpen(false);
-                              setConfirmCancel(true);
+                              cancelChoiceLock.current = false;
+                              setCancelPrompt('route');
                             }}
                             className="flex min-h-[40px] w-full items-center gap-2 rounded-lg px-3 text-left text-xs font-semibold text-[#ff873f] hover:bg-[#ff873f]/10"
                           >
@@ -947,19 +949,44 @@ export function RouteDetailView({
             </>
           )}
         </div>
-      {confirmCancel && (
-        <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (event.target === event.currentTarget) setConfirmCancel(false);}}>
+      {cancelPrompt === 'route' && (
+        <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (event.target === event.currentTarget) setCancelPrompt(null);}}>
           <div role="dialog" aria-modal="true" aria-labelledby="confirm-cancel-route-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
             <h2 id="confirm-cancel-route-title" className="text-lg font-bold text-[#f3f5f2]">Cancelar {route.nome}?</h2>
             <p className="mt-2 text-sm text-[#bdc7bd]">A rota será encerrada e as paradas não concluídas continuarão registradas no histórico.</p>
             <div className="mt-5 flex flex-col gap-2">
-              {canSendCancellationNotice && (
-                <button type="button" onClick={() => {onCancelRoute(route.id, true); setConfirmCancel(false);}}
-                  className="min-h-[46px] rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]">Cancelar rota e enviar aviso</button>
-              )}
-              <button type="button" onClick={() => {onCancelRoute(route.id, false); setConfirmCancel(false);}}
-                className="min-h-[46px] rounded-xl border border-[#394539] px-4 text-sm font-semibold text-[#f3f5f2]">Cancelar sem enviar aviso</button>
-              <button type="button" onClick={() => setConfirmCancel(false)} className="min-h-[42px] text-sm text-[#9aa59c]">Voltar</button>
+              <button type="button" onClick={() => {
+                if (canSendCancellationNotice) {setCancelPrompt('webhook'); return;}
+                if (cancelChoiceLock.current) return;
+                cancelChoiceLock.current = true;
+                onCancelRoute(route.id, false);
+                setCancelPrompt(null);
+              }} className="min-h-[46px] rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]">Confirmar cancelamento</button>
+              <button type="button" onClick={() => setCancelPrompt(null)} className="min-h-[46px] rounded-xl border border-[#394539] px-4 text-sm font-semibold text-[#f3f5f2]">Não cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {cancelPrompt === 'webhook' && (
+        <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation">
+          <div role="dialog" aria-modal="true" aria-labelledby="confirm-cancel-webhook-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
+            <h2 id="confirm-cancel-webhook-title" className="text-lg font-bold text-[#f3f5f2]">Enviar aviso de cancelamento?</h2>
+            <p className="mt-2 text-sm text-[#bdc7bd]">A rota {route.nome} será cancelada de qualquer forma. Deseja enviar o aviso pelo WhatsApp?</p>
+            <div className="mt-5 flex flex-col gap-2">
+              <button type="button" onClick={() => {
+                if (cancelChoiceLock.current) return;
+                cancelChoiceLock.current = true;
+                onCancelRoute(route.id, true);
+                setCancelPrompt(null);
+              }} className="inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-[#baff27] px-4 text-sm font-bold text-[#0d100e]">
+                <Check className="h-4 w-4" />Enviar aviso
+              </button>
+              <button type="button" onClick={() => {
+                if (cancelChoiceLock.current) return;
+                cancelChoiceLock.current = true;
+                onCancelRoute(route.id, false);
+                setCancelPrompt(null);
+              }} className="min-h-[46px] rounded-xl border border-[#394539] px-4 text-sm font-semibold text-[#f3f5f2]">Não enviar</button>
             </div>
           </div>
         </div>
