@@ -113,21 +113,6 @@ export function buildSingleStopGoogleMapsUrl(
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
-export function buildSingleStopGoogleMapsNavigationUrls(
-  stop: {lat: number; lng: number},
-  origin?: Coordinates | null
-): {appUrl: string; webUrl: string} {
-  const appParams = new URLSearchParams({
-    daddr: `${stop.lat},${stop.lng}`,
-    directionsmode: 'driving',
-  });
-
-  return {
-    appUrl: `comgooglemaps://?${appParams.toString()}`,
-    webUrl: buildSingleStopGoogleMapsUrl(stop, origin),
-  };
-}
-
 export interface GoogleMapsRouteSegment {
   partIndex: number;
   totalParts: number;

@@ -86,3 +86,4 @@ export function cancellationEventPayload(
     proxima_rota: notice.proxima_rota,
   };
 }
+
