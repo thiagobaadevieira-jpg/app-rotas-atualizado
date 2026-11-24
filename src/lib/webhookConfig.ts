@@ -47,6 +47,21 @@ export function notifyCancellation(
   eventId: string,
   notice?: CancellationNotice,
 ) {
+  if (notice?.evento === 'parada_cancelada' && notice.parada_cancelada) {
+    return call<{sent?: boolean; skipped?: boolean}>({
+      action: 'notify_cancel',
+      routeId,
+      stopId: notice.parada_cancelada.id,
+      cancelledAt,
+      eventId,
+      evento: 'parada_cancelada',
+      event_id: eventId,
+      ocorrido_em: cancelledAt,
+      rota: notice.rota,
+      parada_cancelada: notice.parada_cancelada,
+      proxima_entrega: notice.proxima_entrega,
+    });
+  }
   const event = cancellationEventPayload(notice ?? {
     rota: {id: routeId, nome: ''},
     parada_cancelada: null,
@@ -64,7 +79,7 @@ export function notifyCancellation(
     rota: event.rota,
     parada_cancelada: event.parada_cancelada,
     proxima_entrega: event.proxima_entrega,
-    proxima_rota: event.proxima_rota,
+    proxima_rota: event.proxima_rota ?? null,
   });
 }
 

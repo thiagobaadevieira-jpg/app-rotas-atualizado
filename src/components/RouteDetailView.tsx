@@ -44,6 +44,7 @@ interface RouteDetailViewProps {
   onRenameRoute: (routeId: string, newName: string) => void;
   onDeleteRoute: (routeId: string) => void;
   onCancelRoute: (routeId: string, sendNotice: boolean) => void;
+  onCancelStop: (routeId: string, stopId: string, sendNotice: boolean) => void;
   onRemoveStop: (routeId: string, stopId: string) => Promise<void>;
   canDelete?: boolean;
   onOpenAddStops: () => void;
@@ -225,7 +226,7 @@ function DraggableStopItem({
           <button
             type="button"
             onClick={() => onUpdateStopStatus(routeId, stop.stopId, 'nao_entregue')}
-            aria-label={`Marcar ${stop.nome} como não entregue`}
+            aria-label={`Cancelar parada ${stop.nome}`}
             title="Não entregue"
             className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg bg-[#4a2d1c] text-[#ff873f] hover:bg-[#ff873f] hover:text-[#0d100e]"
           >
@@ -248,6 +249,7 @@ export function RouteDetailView({
   onRenameRoute,
   onDeleteRoute,
   onCancelRoute,
+  onCancelStop,
   onRemoveStop,
   canDelete = true,
   onOpenAddStops,
@@ -265,6 +267,9 @@ export function RouteDetailView({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [cancelPrompt, setCancelPrompt] = useState<null | 'route' | 'webhook'>(null);
   const cancelChoiceLock = useRef(false);
+  const [stopToCancel, setStopToCancel] = useState<RouteStop | null>(null);
+  const [stopCancelStep, setStopCancelStep] = useState<'confirm' | 'webhook'>('confirm');
+  const stopCancelLock = useRef(false);
   const [routeMenuOpen, setRouteMenuOpen] = useState(false);
   const [stopToRemove, setStopToRemove] = useState<RouteStop | null>(null);
   const [removingStop, setRemovingStop] = useState(false);
@@ -851,7 +856,17 @@ export function RouteDetailView({
                           canDelete={canDelete}
                           onRequestMaps={requestMaps}
                           onRequestRemove={(item) => {setRemoveError(null); setStopToRemove(item);}}
-                          onUpdateStopStatus={onUpdateStopStatus}
+                          onUpdateStopStatus={(id, stopId, status) => {
+                            if (status === 'nao_entregue') {
+                              const stop = route.stops.find((item) => item.stopId === stopId);
+                              if (!stop || stop.status !== 'pendente') return;
+                              stopCancelLock.current = false;
+                              setStopToCancel(stop);
+                              setStopCancelStep('confirm');
+                              return;
+                            }
+                            onUpdateStopStatus(id, stopId, status);
+                          }}
                           onOpenWhatsApp={onOpenWhatsApp}
                           onDragStart={(id) => {
                             isDraggingRef.current = true;
@@ -986,6 +1001,48 @@ export function RouteDetailView({
                 cancelChoiceLock.current = true;
                 onCancelRoute(route.id, false);
                 setCancelPrompt(null);
+              }} className="min-h-[46px] rounded-xl border border-[#394539] px-4 text-sm font-semibold text-[#f3f5f2]">Não enviar</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {stopToCancel && stopCancelStep === 'confirm' && (
+        <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (event.target === event.currentTarget) setStopToCancel(null);}}>
+          <div role="dialog" aria-modal="true" aria-labelledby="confirm-cancel-stop-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
+            <h2 id="confirm-cancel-stop-title" className="text-lg font-bold text-[#f3f5f2]">Cancelar parada {stopToCancel.nome}?</h2>
+            <p className="mt-2 text-sm text-[#bdc7bd]">A parada sai da lista de pendentes e fica registrada como não entregue.</p>
+            <div className="mt-5 flex flex-col gap-2">
+              <button type="button" onClick={() => {
+                if (canSendCancellationNotice) {setStopCancelStep('webhook'); return;}
+                if (stopCancelLock.current) return;
+                stopCancelLock.current = true;
+                onCancelStop(route.id, stopToCancel.stopId, false);
+                setStopToCancel(null);
+              }} className="min-h-[46px] rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]">Confirmar cancelamento</button>
+              <button type="button" onClick={() => setStopToCancel(null)} className="min-h-[46px] rounded-xl border border-[#394539] px-4 text-sm font-semibold text-[#f3f5f2]">Não cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {stopToCancel && stopCancelStep === 'webhook' && (
+        <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation">
+          <div role="dialog" aria-modal="true" aria-labelledby="confirm-cancel-stop-webhook-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
+            <h2 id="confirm-cancel-stop-webhook-title" className="text-lg font-bold text-[#f3f5f2]">Enviar aviso de cancelamento?</h2>
+            <p className="mt-2 text-sm text-[#bdc7bd]">A parada {stopToCancel.nome} será cancelada de qualquer forma. Deseja enviar o aviso pelo WhatsApp?</p>
+            <div className="mt-5 flex flex-col gap-2">
+              <button type="button" onClick={() => {
+                if (stopCancelLock.current) return;
+                stopCancelLock.current = true;
+                onCancelStop(route.id, stopToCancel.stopId, true);
+                setStopToCancel(null);
+              }} className="inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-[#baff27] px-4 text-sm font-bold text-[#0d100e]">
+                <Check className="h-4 w-4" />Enviar aviso
+              </button>
+              <button type="button" onClick={() => {
+                if (stopCancelLock.current) return;
+                stopCancelLock.current = true;
+                onCancelStop(route.id, stopToCancel.stopId, false);
+                setStopToCancel(null);
               }} className="min-h-[46px] rounded-xl border border-[#394539] px-4 text-sm font-semibold text-[#f3f5f2]">Não enviar</button>
             </div>
           </div>
