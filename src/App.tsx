@@ -16,7 +16,7 @@ import {useOnlineStatus} from './hooks/useOnlineStatus.ts';
 import {useRouteDistances} from './hooks/useRouteDistances.ts';
 import {loadAppData, loadProfile, supabase} from './lib/supabase.ts';
 import type {AppData, Profile} from './lib/supabase.ts';
-import {buildCancellationNotice} from './lib/cancellationNotice.ts';
+import {buildCancellationNotice, buildStopCancellationNotice} from './lib/cancellationNotice.ts';
 import type {CancellationNotice} from './lib/cancellationNotice.ts';
 import {cacheData, clearLastOfflineUser, flushChanges, lastOfflineUser, newChangeId, queueChange, readOffline, readWebhookStatus} from './lib/offlineStore.ts';
 import type {PendingChange, WebhookDispatchStatus, WebhookHistoryItem} from './lib/offlineStore.ts';
@@ -649,11 +649,21 @@ export default function App() {
     });
   };
 
+  const handleCancelStop = (routeId: string, stopId: string, sendNotice: boolean) => {
+    const target = routes.find((route) => route.id === routeId);
+    const stop = target?.stops.find((item) => item.stopId === stopId);
+    if (!target || !stop || stop.status !== 'pendente') return;
+    const allowNotice = sendNotice && profile?.id === THIAGO_USER_ID && profile.role === 'admin';
+    handleUpdateStopStatus(routeId, stopId, 'nao_entregue', false,
+      allowNotice ? buildStopCancellationNotice(target, stopId) ?? undefined : undefined);
+  };
+
   const handleUpdateStopStatus = (
     routeId: string,
     stopId: string,
     status: 'pendente' | 'concluida' | 'nao_entregue',
-    sendNotice = false
+    sendNotice = false,
+    cancellationNotice?: CancellationNotice
   ) => {
     const target = routes.find((r) => r.id === routeId);
     if (!target) return;
@@ -679,6 +689,11 @@ export default function App() {
       setDirectTravel((prev) => (prev?.routeId === routeId ? null : prev));
     }
 
+    const sendCancellation = Boolean(cancellationNotice)
+      && status === 'nao_entregue'
+      && target.stops.find((s) => s.stopId === stopId)?.status !== 'nao_entregue'
+      && profile?.id === THIAGO_USER_ID
+      && profile.role === 'admin';
     void persistRouteUpdate({
       ...target,
       stops: [...pending, ...finished],
@@ -686,7 +701,8 @@ export default function App() {
       status: nextStatus,
       updatedAt: now,
     }, sendNotice && profile?.id === THIAGO_USER_ID && profile.role === 'admin' && status === 'concluida' &&
-      target.stops.find((s) => s.stopId === stopId)?.status !== 'concluida' ? stopId : undefined);
+      target.stops.find((s) => s.stopId === stopId)?.status !== 'concluida' ? stopId : undefined,
+      false, undefined, sendCancellation, sendCancellation ? cancellationNotice : undefined);
   };
 
   const requestStopStatusUpdate = (routeId: string, stopId: string,
@@ -888,7 +904,7 @@ export default function App() {
                       </div>
                       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-[11px]">
                         <dt className="text-[#6f7a71]">Evento</dt>
-                        <dd className="text-[#bdc7bd]">{item.kind === 'delivery' ? 'Parada concluída' : item.kind === 'return' ? 'Retorno à empresa' : 'Rota cancelada'}</dd>
+                        <dd className="text-[#bdc7bd]">{item.kind === 'delivery' ? 'Parada concluída' : item.kind === 'return' ? 'Retorno à empresa' : (item.eventLabel || 'Rota cancelada')}</dd>
                         <dt className="text-[#6f7a71]">Aconteceu</dt>
                         <dd className="text-[#bdc7bd] tabular-nums">{webhookDateTime(item.occurredAt)}</dd>
                         <dt className="text-[#6f7a71]">{item.state === 'sent' ? 'Enviado' : 'Atualizado'}</dt>
@@ -960,6 +976,7 @@ export default function App() {
                   onRenameRoute={handleRenameRoute}
                   onDeleteRoute={(id) => void handleDeleteRoute(id)}
                   onCancelRoute={handleCancelRoute}
+                  onCancelStop={handleCancelStop}
                   onRemoveStop={handleRemoveStop}
                   canDelete={profile.role === 'admin'}
                   onOpenAddStops={() => setAddStopsOpen(true)}

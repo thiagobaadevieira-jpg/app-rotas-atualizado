@@ -28,6 +28,7 @@ export type WebhookHistoryItem = {
   routeId: string;
   routeName: string;
   targetName: string;
+  eventLabel?: string;
   occurredAt: string;
   state: 'pending' | 'sent' | 'failed';
   updatedAt: string;
@@ -150,12 +151,15 @@ export function queueChange(userId: string, profile: Profile, data: AppData,
     const eventId = newChangeId();
     pending.push({id: eventId, kind: 'notifyCancellation', routeId: change.value.id,
       cancelledAt: change.notifyCancellationAt, notice: change.cancellationNotice});
+    const stopNotice = change.cancellationNotice?.evento === 'parada_cancelada'
+      ? change.cancellationNotice.parada_cancelada : null;
     queuedEvents.push({
       eventId,
       kind: 'cancellation',
       routeId: change.value.id,
       routeName: change.value.nome,
-      targetName: `Cancelamento de ${change.value.nome}`,
+      targetName: stopNotice ? `Cancelamento de ${stopNotice.nome}` : `Cancelamento de ${change.value.nome}`,
+      eventLabel: stopNotice ? 'Parada cancelada' : undefined,
       occurredAt: change.notifyCancellationAt,
       state: 'pending',
       updatedAt: new Date().toISOString(),

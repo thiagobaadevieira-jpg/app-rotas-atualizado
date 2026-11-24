@@ -10,10 +10,11 @@ export interface WebhookEntrega {
 }
 
 export interface CancellationNotice {
+  evento?: 'rota_cancelada' | 'parada_cancelada';
   rota: {id: string; nome: string};
   parada_cancelada: WebhookEntrega | null;
   proxima_entrega: WebhookEntrega | null;
-  proxima_rota: {id: string; nome: string} | null;
+  proxima_rota?: {id: string; nome: string} | null;
 }
 
 export interface CancellationEventPayload extends CancellationNotice {
@@ -53,6 +54,20 @@ export function buildCancellationNotice(route: RoutePlan, routes: RoutePlan[]): 
     parada_cancelada: entrega(current),
     proxima_entrega: entrega(nextRoute ? firstPending(nextRoute) : null),
     proxima_rota: nextRoute ? {id: nextRoute.id, nome: nextRoute.nome} : null,
+  };
+}
+
+/** Next pending stop after this one in the same route. Null when it is the last pending stop. */
+export function buildStopCancellationNotice(route: RoutePlan, stopId: string): CancellationNotice | null {
+  const index = route.stops.findIndex((stop) => stop.stopId === stopId);
+  const stop = index >= 0 ? route.stops[index] : undefined;
+  if (!stop) return null;
+  const next = route.stops.slice(index + 1).find((item) => item.status === 'pendente') || null;
+  return {
+    evento: 'parada_cancelada',
+    rota: {id: route.id, nome: route.nome},
+    parada_cancelada: entrega(stop),
+    proxima_entrega: entrega(next),
   };
 }
 
