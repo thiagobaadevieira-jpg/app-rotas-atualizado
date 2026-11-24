@@ -1,3 +1,5 @@
+import {cancellationEventPayload} from './cancellationNotice.ts';
+import type {CancellationNotice} from './cancellationNotice.ts';
 import {supabase} from './supabase.ts';
 
 export interface WebhookConfigStatus {
@@ -5,7 +7,7 @@ export interface WebhookConfigStatus {
   hasKey: boolean;
 }
 
-async function call<T>(body: Record<string, string>): Promise<T> {
+async function call<T>(body: Record<string, unknown>): Promise<T> {
   if (!supabase) throw new Error('Supabase não configurado.');
   const {data, error} = await supabase.functions.invoke('webhook-config', {body});
   if (error) {
@@ -39,9 +41,30 @@ export function notifyReturn(routeId: string, startedAt: string, eventId: string
   });
 }
 
-export function notifyCancellation(routeId: string, cancelledAt: string, eventId: string) {
+export function notifyCancellation(
+  routeId: string,
+  cancelledAt: string,
+  eventId: string,
+  notice?: CancellationNotice,
+) {
+  const event = cancellationEventPayload(notice ?? {
+    rota: {id: routeId, nome: ''},
+    parada_cancelada: null,
+    proxima_entrega: null,
+    proxima_rota: null,
+  }, eventId, cancelledAt);
   return call<{sent?: boolean; skipped?: boolean}>({
-    action: 'notify_cancel', routeId, cancelledAt, eventId,
+    action: 'notify_cancel',
+    routeId,
+    cancelledAt,
+    eventId,
+    evento: event.evento,
+    event_id: event.event_id,
+    ocorrido_em: event.ocorrido_em,
+    rota: event.rota,
+    parada_cancelada: event.parada_cancelada,
+    proxima_entrega: event.proxima_entrega,
+    proxima_rota: event.proxima_rota,
   });
 }
 
