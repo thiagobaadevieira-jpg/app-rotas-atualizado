@@ -374,8 +374,7 @@ export function RouteDetailView({
   const openStopMaps = (stop: RouteStop) => {
     onSelectDestination(route.id, stop.stopId, true);
     const webUrl = buildSingleStopGoogleMapsUrl(stop, userPosition);
-    const opened = window.open(webUrl, '_blank', 'noopener,noreferrer');
-    if (!opened) window.location.assign(webUrl);
+    window.location.assign(webUrl);
   };
 
   const confirmRemoveStop = async () => {
