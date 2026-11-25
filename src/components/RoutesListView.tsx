@@ -1,5 +1,5 @@
 import {ChevronRight, Navigation, Plus, Route as RouteIcon} from 'lucide-react';
-import {COMPANY_DESTINATION_ID, getArrivedStopId} from '../types.ts';
+import {COMPANY_DESTINATION_ID, getArrivedStopId, HOME_DESTINATION_ID} from '../types.ts';
 import type {CompanyLocation, RoutePlan} from '../types.ts';
 import type {RouteDistance} from '../hooks/useRouteDistances.ts';
 import {formatDistancePt} from '../utils/geo.ts';
@@ -8,6 +8,7 @@ import {useState} from 'react';
 interface RoutesListViewProps {
   routes: RoutePlan[];
   company: CompanyLocation | null;
+  home: CompanyLocation | null;
   distances: Record<string, RouteDistance>;
   onOpenRoute: (routeId: string) => void;
   onCreateRoute: () => void;
@@ -17,6 +18,7 @@ interface RoutesListViewProps {
 export function RoutesListView({
   routes,
   company,
+  home,
   distances,
   onOpenRoute,
   onCreateRoute,
@@ -29,7 +31,7 @@ export function RoutesListView({
         <div>
           <h1 className="text-xl font-bold tracking-tight text-[#f3f5f2] sm:text-2xl">Rotas</h1>
           <p className="mt-0.5 text-xs text-[#9aa59c]">
-            Toque em uma rota para ver o mapa, ordenar paradas e iniciar a navegação.
+            Toque em uma rota para ver o mapa, ordenar paradas e iniciar a navega��o.
           </p>
         </div>
 
@@ -48,7 +50,7 @@ export function RoutesListView({
           <RouteIcon className="mx-auto h-8 w-8 text-[#5d6b5f]" />
           <h2 className="mt-3 text-base font-semibold text-[#f3f5f2]">Nenhuma rota cadastrada</h2>
           <p className="mt-1 text-sm text-[#9aa59c]">
-            Toque em Nova rota para começar.
+            Toque em Nova rota para come�ar.
           </p>
         </div>
       ) : (
@@ -83,17 +85,17 @@ export function RoutesListView({
                     </p>
                     {route.status === 'finalizada' ? (
                       <p className="mt-1.5 text-xs font-semibold text-[#baff27]">
-                        {completed ? 'Rota concluída' : 'Rota encerrada'}
+                        {completed ? 'Rota conclu�da' : 'Rota encerrada'}
                       </p>
                     ) : arrivedStop && route.activeDriverName ? (
                       <p className="mt-1.5 text-xs font-semibold text-[#baff27]">
                         {route.activeDriverName} chegou em {arrivedStop.nome}
                       </p>
-                    ) : (currentDest || (company && route.currentDestinationStopId === COMPANY_DESTINATION_ID)) && route.activeDriverName && (
+                    ) : (currentDest || (company && route.currentDestinationStopId === COMPANY_DESTINATION_ID) || (home && route.currentDestinationStopId === HOME_DESTINATION_ID)) && route.activeDriverName && (
                       <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#ff873f]">
                         <Navigation className="h-3.5 w-3.5 shrink-0" />
                         <span>
-                          {route.activeDriverName}{currentDest ? '' : ' -'} em rota para {currentDest?.nome || company?.name}
+                          {route.activeDriverName}{currentDest ? '' : ' -'} em rota para {currentDest?.nome || (route.currentDestinationStopId === HOME_DESTINATION_ID ? home?.name : company?.name)}
                         </span>
                       </p>
                     )}
@@ -122,8 +124,8 @@ export function RoutesListView({
             <h2 id="finish-list-route-title" className="text-lg font-bold text-[#f3f5f2]">Finalizar {routeToFinish.nome}?</h2>
             <p className="mt-2 text-sm text-[#bdc7bd]">
               {routeToFinish.stops.filter((stop) => stop.status === 'pendente').length > 0
-                ? `${routeToFinish.stops.filter((stop) => stop.status === 'pendente').length} parada(s) continuarão pendentes. O card mostrará “Rota encerrada”.`
-                : 'O card mostrará o resultado final da rota.'}
+                ? `${routeToFinish.stops.filter((stop) => stop.status === 'pendente').length} parada(s) continuar�o pendentes. O card mostrar� "Rota encerrada".`
+                : 'O card mostrar� o resultado final da rota.'}
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setRouteToFinish(null)}
@@ -137,3 +139,4 @@ export function RoutesListView({
     </div>
   );
 }
+
