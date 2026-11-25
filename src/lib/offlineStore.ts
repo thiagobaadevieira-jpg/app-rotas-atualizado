@@ -7,8 +7,8 @@ import {notifyCancellation, notifyDelivery, notifyReturn} from './webhookConfig.
 export type PendingChange =
   | {id: string; kind: 'saveMarmoraria'; value: Marmoraria}
   | {id: string; kind: 'deleteMarmoraria'; value: string}
-  | {id: string; kind: 'saveRoute'; value: RoutePlan; previousStopIds: string[]; notifyStopId?: string; notifyAt?: string; notifyReturnAt?: string; returnDurationSec?: number; notifyCancellationAt?: string; cancellationNotice?: CancellationNotice}
-  | {id: string; kind: 'notifyDelivery'; routeId: string; stopId: string; completedAt: string}
+  | {id: string; kind: 'saveRoute'; value: RoutePlan; previousStopIds: string[]; notifyStopId?: string; notifyAt?: string; deliveryReturnDurationSec?: number; notifyReturnAt?: string; returnDurationSec?: number; notifyCancellationAt?: string; cancellationNotice?: CancellationNotice}
+  | {id: string; kind: 'notifyDelivery'; routeId: string; stopId: string; completedAt: string; remainingDurationSec?: number}
   | {id: string; kind: 'notifyReturn'; routeId: string; startedAt: string; remainingDurationSec?: number}
   | {id: string; kind: 'notifyCancellation'; routeId: string; cancelledAt: string; notice?: CancellationNotice}
   | {id: string; kind: 'deleteRoute'; value: string}
@@ -119,7 +119,8 @@ export function queueChange(userId: string, profile: Profile, data: AppData,
   if (change.kind === 'saveRoute' && change.notifyStopId && change.notifyAt) {
     const eventId = newChangeId();
     pending.push({id: eventId, kind: 'notifyDelivery', routeId: change.value.id,
-      stopId: change.notifyStopId, completedAt: change.notifyAt});
+      stopId: change.notifyStopId, completedAt: change.notifyAt,
+      remainingDurationSec: change.deliveryReturnDurationSec});
     const stop = change.value.stops.find((item) => item.stopId === change.notifyStopId);
     queuedEvents.push({
       eventId,
@@ -183,7 +184,8 @@ async function applyChange(change: PendingChange): Promise<void | WebhookDispatc
     case 'saveMarmoraria': return saveMarmoraria(change.value);
     case 'deleteMarmoraria': return deleteMarmoraria(change.value);
     case 'saveRoute': return saveRoute(change.value, change.previousStopIds);
-    case 'notifyDelivery': return notifyDelivery(change.routeId, change.stopId, change.completedAt, change.id);
+    case 'notifyDelivery': return notifyDelivery(change.routeId, change.stopId, change.completedAt, change.id,
+      change.remainingDurationSec);
     case 'notifyReturn': return notifyReturn(change.routeId, change.startedAt, change.id, change.remainingDurationSec);
     case 'notifyCancellation': return notifyCancellation(change.routeId, change.cancelledAt, change.id, change.notice);
     case 'deleteRoute': return deleteRoute(change.value);
