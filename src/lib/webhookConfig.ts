@@ -8,13 +8,13 @@ export interface WebhookConfigStatus {
 }
 
 async function call<T>(body: Record<string, unknown>): Promise<T> {
-  if (!supabase) throw new Error('Supabase não configurado.');
+  if (!supabase) throw new Error('Supabase n�o configurado.');
   const {data, error} = await supabase.functions.invoke('webhook-config', {body});
   if (error) {
     const response = error.context as Response | undefined;
     const detail = response && typeof response.json === 'function'
       ? await response.json().catch(() => null) as {error?: string} | null : null;
-    throw new Error(detail?.error || 'Não foi possível acessar a configuração.');
+    throw new Error(detail?.error || 'N�o foi poss�vel acessar a configura��o.');
   }
   if (data?.error) throw new Error(data.error);
   return data as T;
@@ -29,10 +29,11 @@ export function saveWebhookConfig(url: string, key: string) {
 }
 
 export function notifyDelivery(routeId: string, stopId: string, completedAt: string, eventId: string,
-  remainingDurationSec?: number) {
+  remainingDurationSec?: number, finalDestinationType?: 'factory' | 'home') {
   return call<{sent?: boolean; skipped?: boolean}>({
     action: 'notify', routeId, stopId, completedAt, eventId,
     ...(remainingDurationSec == null ? {} : {remainingDurationSec: String(remainingDurationSec)}),
+    ...(finalDestinationType ? {finalDestinationType} : {}),
   });
 }
 
@@ -103,5 +104,6 @@ export function notifyCancellation(
   }, eventId, cancelledAt);
   return call<{sent?: boolean; skipped?: boolean}>(notifyCancellationRequest(routeId, cancelledAt, eventId, event));
 }
+
 
 
