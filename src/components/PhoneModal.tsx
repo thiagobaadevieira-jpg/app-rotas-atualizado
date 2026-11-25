@@ -4,6 +4,7 @@ import type {FormEvent} from 'react';
 import type {Marmoraria} from '../types.ts';
 
 export function PhoneModal({marmoraria, onClose, onSave}: {
+  key?: string;
   marmoraria: Marmoraria;
   onClose: () => void;
   onSave: (marmoraria: Marmoraria, phone: string) => Promise<void>;
@@ -16,7 +17,7 @@ export function PhoneModal({marmoraria, onClose, onSave}: {
     event.preventDefault();
     const digits = phone.replace(/\D/g, '');
     if (digits.length < 10 || digits.length > 13) {
-      setError('Informe um telefone com DDD válido.');
+      setError('Informe um telefone com DDD v�lido.');
       return;
     }
     setSaving(true);
@@ -24,7 +25,7 @@ export function PhoneModal({marmoraria, onClose, onSave}: {
     try {
       await onSave(marmoraria, phone.trim());
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Não foi possível salvar o telefone.');
+      setError(cause instanceof Error ? cause.message : 'N�o foi poss�vel salvar o telefone.');
     } finally {
       setSaving(false);
     }
@@ -37,7 +38,7 @@ export function PhoneModal({marmoraria, onClose, onSave}: {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 id="phone-modal-title" className="text-base font-bold text-[#f3f5f2]">Telefone de {marmoraria.nome}</h2>
-            <p className="mt-1 text-xs text-[#9aa59c]">Será salvo no cadastro para todas as rotas.</p>
+            <p className="mt-1 text-xs text-[#9aa59c]">Ser� salvo no cadastro para todas as rotas.</p>
           </div>
           <button type="button" onClick={onClose} disabled={saving} aria-label="Fechar" className="min-h-[40px] min-w-[40px] text-[#ff873f]"><X className="mx-auto h-5 w-5" /></button>
         </div>
@@ -53,3 +54,4 @@ export function PhoneModal({marmoraria, onClose, onSave}: {
     </div>
   );
 }
+
