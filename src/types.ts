@@ -42,6 +42,7 @@ export interface RoutePlan {
 }
 
 export const COMPANY_DESTINATION_ID = '__company__';
+export const HOME_DESTINATION_ID = '__home__';
 export const ARRIVED_DESTINATION_PREFIX = '__arrived__:';
 
 export function arrivedDestinationId(stopId: string) {
@@ -68,3 +69,6 @@ export interface CompanyLocation extends Coordinates {
   name: string;
   address: string;
 }
+
+export type FinalDestinationType = 'factory' | 'home';
+
