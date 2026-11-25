@@ -16,7 +16,7 @@ function reply(body: Record<string, unknown>, status = 200) {
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response(null, {status: 204, headers: cors});
-  if (request.method !== 'POST') return reply({error: 'M�todo inv�lido.'}, 405);
+  if (request.method !== 'POST') return reply({error: 'M?todo inv?lido.'}, 405);
   const token = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
   if (!token) return reply({error: 'Entre novamente para continuar.'}, 401);
 
@@ -28,11 +28,11 @@ Deno.serve(async (request) => {
       auth: {persistSession: false}, global: {headers: {Authorization: `Bearer ${token}`}},
     });
     const {data: {user}, error: authError} = await userClient.auth.getUser(token);
-    if (authError || !user) return reply({error: 'Sess�o inv�lida.'}, 401);
+    if (authError || !user) return reply({error: 'Sess?o inv?lida.'}, 401);
 
     const {data: profile, error: profileError} = await userClient.from('profiles')
       .select('role,active,display_name').eq('id', user.id).single();
-    if (profileError || !profile?.active) return reply({error: 'Acesso n�o autorizado.'}, 403);
+    if (profileError || !profile?.active) return reply({error: 'Acesso n?o autorizado.'}, 403);
     const admin = createClient(url, secret, {auth: {persistSession: false}});
 
     const input = await request.json();
@@ -65,14 +65,14 @@ Deno.serve(async (request) => {
         if (!validEventId || !validOccurredAt || !validRoute
             || !validDelivery(input.parada_cancelada) || !validDelivery(input.proxima_entrega)
             || (input.evento === 'rota_cancelada' && !validNextRoute)) {
-          return reply({error: 'Dados do cancelamento inválidos.'}, 400);
+          return reply({error: 'Dados do cancelamento inv�lidos.'}, 400);
         }
 
         const {data: secrets, error: secretError} = await admin.rpc('webhook_delivery_secret');
         if (secretError) throw secretError;
         const config = secrets?.[0];
         if (!config?.webhook_url || !config?.webhook_key) {
-          return reply({skipped: true, reason: 'Webhook não configurado.'});
+          return reply({skipped: true, reason: 'Webhook n�o configurado.'});
         }
 
         const claimStopId = input.parada_cancelada?.id
@@ -84,7 +84,7 @@ Deno.serve(async (request) => {
         if (claimError) throw claimError;
         if (claim === 'sent') return reply({sent: true, repeated: true});
         if (claim === 'sending') return reply({error: 'Aviso em processamento. Tente novamente.'}, 503);
-        if (claim !== 'send') return reply({error: 'Aviso inválido.'}, 409);
+        if (claim !== 'send') return reply({error: 'Aviso inv�lido.'}, 409);
 
         const cancellationPayload = {
           evento: input.evento,
@@ -130,7 +130,7 @@ Deno.serve(async (request) => {
         typeof input.eventId !== 'string' || typeof input.completedAt !== 'string' ||
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.eventId) ||
         !Number.isFinite(Date.parse(input.completedAt))) {
-        return reply({error: 'Dados da entrega inv�lidos.'}, 400);
+        return reply({error: 'Dados da entrega inv?lidos.'}, 400);
       }
 
       // Always read the completed stop and the next stop from the database.
@@ -142,12 +142,12 @@ Deno.serve(async (request) => {
       const completed = stops?.find((stop) => stop.stop_id === input.stopId);
       if (!completed || completed.status !== 'concluida' ||
         new Date(completed.updated_at).getTime() !== new Date(input.completedAt).getTime()) {
-        return reply({skipped: true, reason: 'Entrega n�o est� mais conclu�da.'});
+        return reply({skipped: true, reason: 'Entrega n?o est? mais conclu?da.'});
       }
       const {data: secrets, error: secretError} = await admin.rpc('webhook_delivery_secret');
       if (secretError) throw secretError;
       const config = secrets?.[0];
-      if (!config?.webhook_url || !config?.webhook_key) return reply({skipped: true, reason: 'Webhook n�o configurado.'});
+      if (!config?.webhook_url || !config?.webhook_key) return reply({skipped: true, reason: 'Webhook n?o configurado.'});
 
       const {data: claim, error: claimError} = await admin.rpc('webhook_delivery_claim', {
         p_event_id: input.eventId, p_stop_id: input.stopId, p_completed_at: input.completedAt,
@@ -155,26 +155,31 @@ Deno.serve(async (request) => {
       if (claimError) throw claimError;
       if (claim === 'sent') return reply({sent: true, repeated: true});
       if (claim === 'sending') return reply({error: 'Aviso em processamento. Tente novamente.'}, 503);
-      if (claim !== 'send') return reply({error: 'Aviso inv�lido.'}, 409);
+      if (claim !== 'send') return reply({error: 'Aviso inv?lido.'}, 409);
 
       const next = stops?.find((stop) => stop.status === 'pendente');
-      let company: {company_name: string; company_lat: number; company_lng: number} | null = null;
+      let finalDestination: {name: string; lat: number; lng: number; type: 'fabrica' | 'casa'} | null = null;
       if (!next) {
-        const {data: companyData, error: companyError} = await userClient.from('app_settings')
-          .select('company_name,company_lat,company_lng').eq('id', true).maybeSingle();
-        if (companyError) throw companyError;
-        if (companyData?.company_lat != null && companyData?.company_lng != null) {
-          company = {company_name: companyData.company_name,
-            company_lat: Number(companyData.company_lat), company_lng: Number(companyData.company_lng)};
+        const {data: settings, error: settingsError} = await userClient.from('app_settings')
+          .select('company_name,company_lat,company_lng,home_name,home_lat,home_lng')
+          .eq('id', true).maybeSingle();
+        if (settingsError) throw settingsError;
+        const wantsHome = input.finalDestinationType === 'home';
+        if (wantsHome && settings?.home_lat != null && settings?.home_lng != null) {
+          finalDestination = {name: settings.home_name || 'Casa', lat: Number(settings.home_lat),
+            lng: Number(settings.home_lng), type: 'casa'};
+        } else if (settings?.company_lat != null && settings?.company_lng != null) {
+          finalDestination = {name: settings.company_name || 'Fabrica', lat: Number(settings.company_lat),
+            lng: Number(settings.company_lng), type: 'fabrica'};
         }
       }
 
       let returnDuration = input.remainingDurationSec == null ? null : Number(input.remainingDurationSec);
-      if (!next && company && (!Number.isFinite(returnDuration) || returnDuration == null || returnDuration <= 0)) {
+      if (!next && finalDestination && (!Number.isFinite(returnDuration) || returnDuration == null || returnDuration <= 0)) {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
         try {
-          const coordinates = `${completed.lng},${completed.lat};${company.company_lng},${company.company_lat}`;
+          const coordinates = `${completed.lng},${completed.lat};${finalDestination.lng},${finalDestination.lat}`;
           const routeResponse = await fetch(
             `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=false`,
             {signal: controller.signal},
@@ -185,15 +190,15 @@ Deno.serve(async (request) => {
             if (Number.isFinite(routedDuration) && routedDuration! > 0) returnDuration = routedDuration!;
           }
         } catch {
-          // A estimativa por distância abaixo mantém o aviso útil se o roteador estiver indisponível.
+          // A estimativa por dist�ncia abaixo mant�m o aviso �til se o roteador estiver indispon�vel.
         } finally {clearTimeout(timeout);}
 
         if (!Number.isFinite(returnDuration) || returnDuration == null || returnDuration <= 0) {
           const toRad = (value: number) => value * Math.PI / 180;
-          const dLat = toRad(company.company_lat - completed.lat);
-          const dLng = toRad(company.company_lng - completed.lng);
+          const dLat = toRad(finalDestination.lat - completed.lat);
+          const dLng = toRad(finalDestination.lng - completed.lng);
           const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(completed.lat)) *
-            Math.cos(toRad(company.company_lat)) * Math.sin(dLng / 2) ** 2;
+            Math.cos(toRad(finalDestination.lat)) * Math.sin(dLng / 2) ** 2;
           const straightMeters = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
           returnDuration = (straightMeters * 1.28 / 38000) * 3600;
         }
@@ -208,25 +213,32 @@ Deno.serve(async (request) => {
       const time = new Intl.DateTimeFormat('pt-BR', {
         timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit',
       }).format(new Date(input.completedAt));
-      const notice = `Entrega conclu�da: ${completed.nome}, ${completed.cidade}, �s ${time}.` +
-        (next ? ` A caminho da pr�xima entrega: ${next.nome}, ${next.cidade}.` : '');
-      const returnNotice = !next && company
-        ? notice + ` Próxima parada: ${company.company_name}. ` +
-          (durationText ? `Tempo restante estimado para retorno: ~${durationText}.` : '')
+      const notice = `Entrega conclu?da: ${completed.nome}, ${completed.cidade}, ?s ${time}.` +
+        (next ? ` A caminho da pr?xima entrega: ${next.nome}, ${next.cidade}.` : '');
+      const returnNotice = !next && finalDestination
+        ? notice + ` Pr�xima parada: ${finalDestination.name}.` +
+          (durationText ? ` Tempo restante estimado para retorno: ~${durationText}.` : '')
         : notice;
       const payload = {
         evento: 'entrega_concluida', id: input.eventId, rota_id: input.routeId,
         cliente: completed.nome, cidade: completed.cidade,
         endereco: `https://www.google.com/maps?q=${completed.lat},${completed.lng}`,
+        latitude: Number(completed.lat), longitude: Number(completed.lng),
+        localizacao: {latitude: Number(completed.lat), longitude: Number(completed.lng),
+          maps_url: `https://www.google.com/maps?q=${completed.lat},${completed.lng}`},
         telefone: completed.telefone || '', status: 'concluida', horario: input.completedAt,
         entregador: profile.display_name, aviso: returnNotice,
-        proxima_entrega: next ? {cliente: next.nome, cidade: next.cidade,
+        proxima_entrega: next ? {tipo: 'cliente', cliente: next.nome, cidade: next.cidade,
+          latitude: Number(next.lat), longitude: Number(next.lng),
           endereco: `https://www.google.com/maps?q=${next.lat},${next.lng}`} :
-          company ? {cliente: company.company_name, cidade: '',
-            endereco: `https://www.google.com/maps?q=${company.company_lat},${company.company_lng}`} : null,
+          finalDestination ? {tipo: finalDestination.type, cliente: finalDestination.name, cidade: '',
+            latitude: finalDestination.lat, longitude: finalDestination.lng,
+            endereco: `https://www.google.com/maps?q=${finalDestination.lat},${finalDestination.lng}`} : null,
         tempo_restante: durationText ? `~${durationText}` : null,
         tempo_restante_minutos: remainingMinutes,
-        retornando_empresa: !next && Boolean(company),
+        destino_final_tipo: !next ? finalDestination?.type ?? null : null,
+        retornando_empresa: !next && finalDestination?.type === 'fabrica',
+        indo_para_casa: !next && finalDestination?.type === 'casa',
       };
       try {
         const controller = new AbortController();
@@ -255,7 +267,7 @@ Deno.serve(async (request) => {
         typeof input.startedAt !== 'string' ||
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.eventId) ||
         !Number.isFinite(Date.parse(input.startedAt))) {
-        return reply({error: 'Dados do retorno inv�lidos.'}, 400);
+        return reply({error: 'Dados do retorno inv?lidos.'}, 400);
       }
       const {data: route, error: routeError} = await userClient.from('routes')
         .select('id,status,current_destination_stop_id,updated_at,active_driver_name')
@@ -263,7 +275,7 @@ Deno.serve(async (request) => {
       if (routeError) throw routeError;
       if (route.status !== 'em_andamento' || route.current_destination_stop_id !== '__company__' ||
         new Date(route.updated_at).getTime() !== new Date(input.startedAt).getTime()) {
-        return reply({skipped: true, reason: 'Retorno � empresa n�o est� mais ativo.'});
+        return reply({skipped: true, reason: 'Retorno ? empresa n?o est? mais ativo.'});
       }
       const {data: company, error: companyError} = await userClient.from('app_settings')
         .select('company_name,company_lat,company_lng').eq('id', true).maybeSingle();
@@ -274,14 +286,14 @@ Deno.serve(async (request) => {
       const {data: secrets, error: secretError} = await admin.rpc('webhook_delivery_secret');
       if (secretError) throw secretError;
       const config = secrets?.[0];
-      if (!config?.webhook_url || !config?.webhook_key) return reply({skipped: true, reason: 'Webhook n�o configurado.'});
+      if (!config?.webhook_url || !config?.webhook_key) return reply({skipped: true, reason: 'Webhook n?o configurado.'});
       const {data: claim, error: claimError} = await admin.rpc('webhook_delivery_claim', {
         p_event_id: input.eventId, p_stop_id: `return:${route.id}`, p_completed_at: input.startedAt,
       });
       if (claimError) throw claimError;
       if (claim === 'sent') return reply({sent: true, repeated: true});
       if (claim === 'sending') return reply({error: 'Aviso em processamento. Tente novamente.'}, 503);
-      if (claim !== 'send') return reply({error: 'Aviso inv�lido.'}, 409);
+      if (claim !== 'send') return reply({error: 'Aviso inv?lido.'}, 409);
       const driver = route.active_driver_name || profile.display_name;
       const time = new Intl.DateTimeFormat('pt-BR', {
         timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit',
@@ -293,7 +305,7 @@ Deno.serve(async (request) => {
         : remainingMinutes >= 60
           ? `${Math.floor(remainingMinutes / 60)}h${remainingMinutes % 60 ? ` ${remainingMinutes % 60}min` : ''}`
           : `${remainingMinutes} min`;
-      const notice = `${driver} est� retornando � empresa ${company.company_name} �s ${time}.` +
+      const notice = `${driver} est? retornando ? empresa ${company.company_name} ?s ${time}.` +
         (durationText ? ` Tempo restante estimado: ~${durationText}.` : '');
       const payload = {
         evento: 'retorno_empresa', id: input.eventId, rota_id: route.id,
@@ -338,13 +350,13 @@ Deno.serve(async (request) => {
         return reply({error: 'Informe a URL e a chave.'}, 400);
       }
       let target: URL;
-      try {target = new URL(input.url.trim());} catch {return reply({error: 'URL inv�lida.'}, 400);}
+      try {target = new URL(input.url.trim());} catch {return reply({error: 'URL inv?lida.'}, 400);}
       if (target.protocol !== 'https:' || target.hostname !== 'api2.cursor.sh' || target.username || target.password ||
         !target.pathname.startsWith('/automations/webhook/')) {
         return reply({error: 'Use a URL HTTPS do webhook do Cursor.'}, 400);
       }
       if (input.key && !/^crsr_[A-Za-z0-9_-]{20,}$/.test(input.key.trim())) {
-        return reply({error: 'A chave deve come�ar com crsr_.'}, 400);
+        return reply({error: 'A chave deve come?ar com crsr_.'}, 400);
       }
       const {error} = await admin.rpc('webhook_config_save', {
         p_url: target.toString(), p_key: input.key.trim(),
@@ -352,11 +364,12 @@ Deno.serve(async (request) => {
       if (error) throw error;
       return reply({saved: true});
     }
-    return reply({error: 'A��o inv�lida.'}, 400);
+    return reply({error: 'A??o inv?lida.'}, 400);
   } catch (error) {
     console.error('Erro ao configurar o webhook:', error instanceof Error ? error.message : 'desconhecido');
-    return reply({error: 'N�o foi poss�vel salvar a configura��o. Tente novamente.'}, 500);
+    return reply({error: 'N?o foi poss?vel salvar a configura??o. Tente novamente.'}, 500);
   }
 });
+
 
 
