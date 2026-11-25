@@ -94,7 +94,7 @@ export default function App() {
   const [syncing, setSyncing] = useState(false);
   const [webhookStatus, setWebhookStatus] = useState<WebhookDispatchStatus | null>(null);
   const [webhookPanelOpen, setWebhookPanelOpen] = useState(false);
-  const [completionToConfirm, setCompletionToConfirm] = useState<{routeId: string; stopId: string; name: string} | null>(null);
+  const [completionToConfirm, setCompletionToConfirm] = useState<{routeId: string; stopId: string; name: string; returnDurationSec?: number} | null>(null);
   const syncingRef = useRef(false);
   const syncAgainRef = useRef(false);
 
@@ -412,7 +412,7 @@ export default function App() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [shouldWatchGeo, geoPermissionGranted]);
 
-  const persistRouteUpdate = useCallback((updatedRoute: RoutePlan, completedStopId?: string, sendReturnNotice = false, returnDurationSec?: number, sendCancellationNotice = false, cancellationNotice?: CancellationNotice) => {
+  const persistRouteUpdate = useCallback((updatedRoute: RoutePlan, completedStopId?: string, sendReturnNotice = false, returnDurationSec?: number, sendCancellationNotice = false, cancellationNotice?: CancellationNotice, deliveryReturnDurationSec?: number) => {
     const previous = remote?.routes.find((r) => r.id === updatedRoute.id);
     if (!remote) return;
     const nextData = {...remote, routes: remote.routes.map((r) => r.id === updatedRoute.id ? updatedRoute : r)};
@@ -420,6 +420,7 @@ export default function App() {
       previousStopIds: previous?.stops.map((s) => s.stopId) || [],
       notifyStopId: completedStopId,
       notifyAt: completedStopId ? updatedRoute.stops.find((s) => s.stopId === completedStopId)?.updatedAt : undefined,
+      deliveryReturnDurationSec: completedStopId ? deliveryReturnDurationSec : undefined,
       notifyReturnAt: sendReturnNotice ? updatedRoute.updatedAt : undefined,
       returnDurationSec: sendReturnNotice ? returnDurationSec : undefined,
       notifyCancellationAt: sendCancellationNotice ? updatedRoute.updatedAt : undefined,
@@ -726,7 +727,8 @@ export default function App() {
     stopId: string,
     status: 'pendente' | 'concluida' | 'nao_entregue',
     sendNotice = false,
-    cancellationNotice?: CancellationNotice
+    cancellationNotice?: CancellationNotice,
+    deliveryReturnDurationSec?: number
   ) => {
     const target = routes.find((r) => r.id === routeId);
     if (!target) return;
@@ -765,23 +767,25 @@ export default function App() {
       updatedAt: now,
     }, sendNotice && profile?.id === THIAGO_USER_ID && profile.role === 'admin' && status === 'concluida' &&
       target.stops.find((s) => s.stopId === stopId)?.status !== 'concluida' ? stopId : undefined,
-      false, undefined, sendCancellation, sendCancellation ? cancellationNotice : undefined);
+      false, undefined, sendCancellation, sendCancellation ? cancellationNotice : undefined,
+      pending.length === 0 ? deliveryReturnDurationSec : undefined);
   };
 
   const requestStopStatusUpdate = (routeId: string, stopId: string,
-    status: 'pendente' | 'concluida' | 'nao_entregue') => {
+    status: 'pendente' | 'concluida' | 'nao_entregue', returnDurationSec?: number) => {
     if (status === 'nao_entregue') return;
     const stop = routes.find((route) => route.id === routeId)?.stops.find((item) => item.stopId === stopId);
     if (status === 'concluida' && stop?.status !== 'concluida' && profile?.id === THIAGO_USER_ID && profile.role === 'admin') {
-      setCompletionToConfirm({routeId, stopId, name: stop?.nome || 'esta entrega'});
+      setCompletionToConfirm({routeId, stopId, name: stop?.nome || 'esta entrega', returnDurationSec});
       return;
     }
-    handleUpdateStopStatus(routeId, stopId, status);
+    handleUpdateStopStatus(routeId, stopId, status, false, undefined, returnDurationSec);
   };
 
   const confirmCompletion = (sendNotice: boolean) => {
     if (!completionToConfirm) return;
-    handleUpdateStopStatus(completionToConfirm.routeId, completionToConfirm.stopId, 'concluida', sendNotice);
+    handleUpdateStopStatus(completionToConfirm.routeId, completionToConfirm.stopId, 'concluida', sendNotice,
+      undefined, completionToConfirm.returnDurationSec);
     setCompletionToConfirm(null);
   };
 
