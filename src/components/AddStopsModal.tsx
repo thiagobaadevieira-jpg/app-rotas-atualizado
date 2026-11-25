@@ -96,15 +96,16 @@ export function AddStopsModal({
           {query && (
             <button
               type="button"
+              onPointerDown={(event) => event.preventDefault()}
               onClick={() => {
                 setQuery('');
                 queryInputRef.current?.focus({preventScroll: true});
               }}
               aria-label="Limpar pesquisa"
               title="Limpar pesquisa"
-              className="absolute top-1/2 right-1.5 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-[#baff27] hover:bg-[#baff27]/10"
+              className="absolute -right-1 -top-1 z-10 flex h-[calc(100%+8px)] w-12 items-center justify-center rounded-xl border border-[#ff873f] bg-[#211a15] text-[#ff873f] hover:bg-[#302118] hover:text-[#ffad73]"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </button>
           )}
         </div>
