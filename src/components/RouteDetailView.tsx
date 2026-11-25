@@ -591,20 +591,6 @@ export function RouteDetailView({
                     </button>
                     {routeMenuOpen && (
                       <div className="absolute right-0 top-9 z-[650] w-44 rounded-xl border border-[#323d33] bg-[#101411] p-1.5 shadow-2xl">
-                        {route.status !== 'finalizada' && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setRouteMenuOpen(false);
-                              cancelChoiceLock.current = false;
-                              setCancelPrompt('route');
-                            }}
-                            className="flex min-h-[40px] w-full items-center gap-2 rounded-lg px-3 text-left text-xs font-semibold text-[#ff873f] hover:bg-[#ff873f]/10"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                            Cancelar rota
-                          </button>
-                        )}
                         <button
                           type="button"
                           onClick={() => {
@@ -666,7 +652,7 @@ export function RouteDetailView({
           title={isMapExpanded ? 'Voltar ao tamanho normal' : 'Ampliar mapa'}
           className={isMapExpanded
             ? 'route-map-collapse absolute right-3 z-[500] inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#394539] bg-[#0d100e]/95 text-[#f3f5f2] shadow-lg'
-            : 'absolute bottom-3 right-3 z-[500] inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#394539] bg-[#0d100e]/95 text-[#f3f5f2] shadow-lg hover:border-[#baff27]/60 hover:text-[#baff27]'}
+            : 'absolute bottom-3 right-3 z-20 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#394539] bg-[#0d100e]/95 text-[#f3f5f2] shadow-lg hover:border-[#baff27]/60 hover:text-[#baff27]'}
         >
           {isMapExpanded ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-4 w-4" />}
         </button>
@@ -783,11 +769,6 @@ export function RouteDetailView({
           </div>
         )}
 
-        {company && orderedPending.length === 0 && (
-          <a href={companyMapsUrl} target="_blank" rel="noopener noreferrer" onClick={startCompanyReturn} className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-[#ff873f] px-3 text-xs font-bold text-[#ff873f]">
-            <Navigation className="h-4 w-4" /> Navegar de volta à empresa
-          </a>
-        )}
       </div>
 
       {/* Controles e lista de paradas */}
