@@ -58,7 +58,8 @@ interface RouteDetailViewProps {
   onUpdateStopStatus: (
     routeId: string,
     stopId: string,
-    status: 'pendente' | 'concluida' | 'nao_entregue'
+    status: 'pendente' | 'concluida' | 'nao_entregue',
+    returnDurationSec?: number
   ) => void;
   onOpenWhatsApp: (stop: RouteStop) => void;
 }
@@ -76,6 +77,7 @@ interface DraggableStopItemProps {
   hasPhone: boolean;
   isDragging: boolean;
   incomingLeg: IncomingLegInfo | null;
+  returnDurationSec?: number;
   routeId: string;
   canDelete: boolean;
   onRequestMaps: (stop: RouteStop) => void;
@@ -84,7 +86,8 @@ interface DraggableStopItemProps {
   onUpdateStopStatus: (
     routeId: string,
     stopId: string,
-    status: 'pendente' | 'concluida' | 'nao_entregue'
+    status: 'pendente' | 'concluida' | 'nao_entregue',
+    returnDurationSec?: number
   ) => void;
   onOpenWhatsApp: (stop: RouteStop) => void;
   onDragStart: (stopId: string) => void;
@@ -100,6 +103,7 @@ function DraggableStopItem({
   hasPhone,
   isDragging,
   incomingLeg,
+  returnDurationSec,
   routeId,
   canDelete,
   onRequestMaps,
@@ -218,7 +222,8 @@ function DraggableStopItem({
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_40px] gap-1.5">
           <button
             type="button"
-            onClick={() => onUpdateStopStatus(routeId, stop.stopId, 'concluida')}
+            onClick={() => onUpdateStopStatus(routeId, stop.stopId, 'concluida',
+              pendingCount === 1 ? returnDurationSec : undefined)}
             aria-label={`Marcar ${stop.nome} como concluída`}
             title="Concluída"
             className="inline-flex min-h-[40px] min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-[#334b20] px-1 text-[10px] font-medium text-[#baff27] hover:bg-[#baff27] hover:text-[#0d100e] sm:text-xs"
@@ -500,6 +505,9 @@ export function RouteDetailView({
   const companyMapsUrl = company ? buildSingleStopGoogleMapsUrl(company, userPosition) : '';
   const returnDurationSec = orderedPending.length === 0 && userPosition && estimates
     ? Math.round(estimates.totalDurationSec)
+    : undefined;
+  const finalStopReturnDurationSec = company && orderedPending.length === 1 && estimates
+    ? Math.round(estimates.legs[estimates.legs.length - 1]?.durationSec ?? 0) || undefined
     : undefined;
   const startCompanyReturn = () => {
     onSelectCompanyDestination(
@@ -846,6 +854,7 @@ export function RouteDetailView({
                           hasPhone={hasPhoneFor(stop)}
                           isDragging={draggingStopId === stop.stopId}
                           incomingLeg={incomingLeg}
+                          returnDurationSec={finalStopReturnDurationSec}
                           routeId={route.id}
                           canDelete={canDelete}
                           onRequestMaps={openStopMaps}
