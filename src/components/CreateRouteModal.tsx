@@ -124,9 +124,7 @@ export function CreateRouteModal({
           <div className="flex min-h-0 flex-1 flex-col">
             <p className="mb-2 text-xs font-semibold text-[#d5dcd4]">
               Selecionar paradas iniciais <span className="font-normal text-[#7b877e]">(opcional)</span>
-              <span className="ml-1.5 font-bold text-[#baff27] tabular-nums">
-                · {selectedIds.length} {selectedIds.length === 1 ? 'selecionada' : 'selecionadas'}
-              </span>
+
             </p>
             <div className="relative mb-4">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9aa59c]" />
@@ -195,20 +193,40 @@ export function CreateRouteModal({
 
           {error && <p className="text-xs text-red-400">{error}</p>}
 
-          <div className="flex justify-end gap-2 border-t border-[#222a23] pt-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-h-[44px] rounded-xl border border-[#283129] px-4 text-xs font-semibold text-[#d5dcd4]"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="min-h-[44px] rounded-xl bg-[#baff27] px-5 text-xs font-bold text-[#0d100e]"
-            >
-              Criar rota
-            </button>
+          <div className="flex items-center justify-between gap-3 border-t border-[#222a23] pt-3">
+            <div>
+              <span className="text-xs text-[#9aa59c] tabular-nums">
+                {selectedIds.length} {selectedIds.length === 1 ? 'selecionada' : 'selecionadas'}
+              </span>
+              {selectedIds.length > 0 && (
+                <button
+                  type="button"
+                  onPointerDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    setSelectedIds([]);
+                    searchInputRef.current?.focus({preventScroll: true});
+                  }}
+                  className="ml-2 min-h-[36px] text-xs font-semibold text-[#ff873f] underline"
+                >
+                  Desmarcar todas
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="min-h-[44px] rounded-xl border border-[#283129] px-4 text-xs font-semibold text-[#d5dcd4]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="min-h-[44px] rounded-xl bg-[#baff27] px-5 text-xs font-bold text-[#0d100e]"
+              >
+                Criar rota
+              </button>
+            </div>
           </div>
         </form>
       </div>
