@@ -1,5 +1,5 @@
 import type {AppData, Profile} from './supabase.ts';
-import {deleteMarmoraria, deleteRoute, saveCompany, saveMarmoraria, saveRoute, saveTemplates} from './supabase.ts';
+import {deleteMarmoraria, deleteRoute, saveCompany, saveHome, saveMarmoraria, saveRoute, saveTemplates} from './supabase.ts';
 import type {CompanyLocation, Marmoraria, RoutePlan, WhatsAppTemplate} from '../types.ts';
 import type {CancellationNotice} from './cancellationNotice.ts';
 import {notifyCancellation, notifyDelivery, notifyReturn} from './webhookConfig.ts';
@@ -7,13 +7,14 @@ import {notifyCancellation, notifyDelivery, notifyReturn} from './webhookConfig.
 export type PendingChange =
   | {id: string; kind: 'saveMarmoraria'; value: Marmoraria}
   | {id: string; kind: 'deleteMarmoraria'; value: string}
-  | {id: string; kind: 'saveRoute'; value: RoutePlan; previousStopIds: string[]; notifyStopId?: string; notifyAt?: string; deliveryReturnDurationSec?: number; notifyReturnAt?: string; returnDurationSec?: number; notifyCancellationAt?: string; cancellationNotice?: CancellationNotice}
-  | {id: string; kind: 'notifyDelivery'; routeId: string; stopId: string; completedAt: string; remainingDurationSec?: number}
+  | {id: string; kind: 'saveRoute'; value: RoutePlan; previousStopIds: string[]; notifyStopId?: string; notifyAt?: string; deliveryReturnDurationSec?: number; deliveryFinalDestinationType?: 'factory' | 'home'; notifyReturnAt?: string; returnDurationSec?: number; notifyCancellationAt?: string; cancellationNotice?: CancellationNotice}
+  | {id: string; kind: 'notifyDelivery'; routeId: string; stopId: string; completedAt: string; remainingDurationSec?: number; finalDestinationType?: 'factory' | 'home'}
   | {id: string; kind: 'notifyReturn'; routeId: string; startedAt: string; remainingDurationSec?: number}
   | {id: string; kind: 'notifyCancellation'; routeId: string; cancelledAt: string; notice?: CancellationNotice}
   | {id: string; kind: 'deleteRoute'; value: string}
   | {id: string; kind: 'saveTemplates'; value: WhatsAppTemplate[]}
-  | {id: string; kind: 'saveCompany'; value: CompanyLocation | null};
+  | {id: string; kind: 'saveCompany'; value: CompanyLocation | null}
+  | {id: string; kind: 'saveHome'; value: CompanyLocation | null};
 
 export type WebhookDispatchStatus = {
   state: 'pending' | 'sent' | 'failed';
@@ -120,14 +121,15 @@ export function queueChange(userId: string, profile: Profile, data: AppData,
     const eventId = newChangeId();
     pending.push({id: eventId, kind: 'notifyDelivery', routeId: change.value.id,
       stopId: change.notifyStopId, completedAt: change.notifyAt,
-      remainingDurationSec: change.deliveryReturnDurationSec});
+      remainingDurationSec: change.deliveryReturnDurationSec,
+      finalDestinationType: change.deliveryFinalDestinationType});
     const stop = change.value.stops.find((item) => item.stopId === change.notifyStopId);
     queuedEvents.push({
       eventId,
       kind: 'delivery',
       routeId: change.value.id,
       routeName: change.value.nome,
-      targetName: stop?.nome || 'Parada concluída',
+      targetName: stop?.nome || 'Parada conclu�da',
       occurredAt: change.notifyAt,
       state: 'pending',
       updatedAt: new Date().toISOString(),
@@ -142,7 +144,7 @@ export function queueChange(userId: string, profile: Profile, data: AppData,
       kind: 'return',
       routeId: change.value.id,
       routeName: change.value.nome,
-      targetName: data.company?.name ? `Retorno à ${data.company.name}` : 'Retorno à empresa',
+      targetName: data.company?.name ? `Retorno � ${data.company.name}` : 'Retorno � empresa',
       occurredAt: change.notifyReturnAt,
       state: 'pending',
       updatedAt: new Date().toISOString(),
@@ -185,12 +187,13 @@ async function applyChange(change: PendingChange): Promise<void | WebhookDispatc
     case 'deleteMarmoraria': return deleteMarmoraria(change.value);
     case 'saveRoute': return saveRoute(change.value, change.previousStopIds);
     case 'notifyDelivery': return notifyDelivery(change.routeId, change.stopId, change.completedAt, change.id,
-      change.remainingDurationSec);
+      change.remainingDurationSec, change.finalDestinationType);
     case 'notifyReturn': return notifyReturn(change.routeId, change.startedAt, change.id, change.remainingDurationSec);
     case 'notifyCancellation': return notifyCancellation(change.routeId, change.cancelledAt, change.id, change.notice);
     case 'deleteRoute': return deleteRoute(change.value);
     case 'saveTemplates': return saveTemplates(change.value);
     case 'saveCompany': return saveCompany(change.value);
+    case 'saveHome': return saveHome(change.value);
   }
 }
 
@@ -210,7 +213,7 @@ export async function flushChanges(userId: string, onProgress?: (remaining: numb
       deferredNotices.push(first);
     }
     const latest = readOffline(userId);
-    if (!latest) throw new Error('A cópia local dos dados foi removida durante a sincronização.');
+    if (!latest) throw new Error('A c�pia local dos dados foi removida durante a sincroniza��o.');
     latest.pending = latest.pending.filter((item) => item.id !== first.id);
     writeOffline(userId, latest);
     if (isWebhook && webhookResult) {
@@ -234,7 +237,7 @@ export async function flushChanges(userId: string, onProgress?: (remaining: numb
   }
   if (deferredNotices.length) {
     const snapshot = readOffline(userId);
-    if (!snapshot) throw new Error('A cópia local foi removida durante a sincronização.');
+    if (!snapshot) throw new Error('A c�pia local foi removida durante a sincroniza��o.');
     snapshot.pending.push(...deferredNotices);
     writeOffline(userId, snapshot);
     writeWebhookStatus(userId, {
@@ -254,4 +257,5 @@ export async function flushChanges(userId: string, onProgress?: (remaining: numb
 export function newChangeId(): string {
   return crypto.randomUUID();
 }
+
 
