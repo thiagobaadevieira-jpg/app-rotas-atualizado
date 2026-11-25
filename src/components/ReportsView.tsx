@@ -76,7 +76,7 @@ export function ReportsView({collections, marmorarias, routes, distances, distan
         {hasEstimate && ' Alguns trechos usam distância estimada quando o serviço de rotas está indisponível.'}
       </p>
       <section className="rounded-2xl border border-[#29332a] bg-[#151a16] p-4">
-        <h2 className="flex items-center gap-2 text-sm font-bold"><BarChart3 className="h-4 w-4 text-[#baff27]" />Top 10 marmorarias com mais coletas</h2>
+        <h2 className="flex items-center gap-2 text-sm font-bold"><BarChart3 className="h-4 w-4 text-[#baff27]" />Top 10 marmorarias com mais rotas</h2>
         {ranking.length === 0 ? (
           <p className="mt-4 text-sm text-[#9aa59c]">Nenhuma coleta registrada neste período.</p>
         ) : (
