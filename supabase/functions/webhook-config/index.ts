@@ -158,20 +158,75 @@ Deno.serve(async (request) => {
       if (claim !== 'send') return reply({error: 'Aviso inv�lido.'}, 409);
 
       const next = stops?.find((stop) => stop.status === 'pendente');
+      let company: {company_name: string; company_lat: number; company_lng: number} | null = null;
+      if (!next) {
+        const {data: companyData, error: companyError} = await userClient.from('app_settings')
+          .select('company_name,company_lat,company_lng').eq('id', true).maybeSingle();
+        if (companyError) throw companyError;
+        if (companyData?.company_lat != null && companyData?.company_lng != null) {
+          company = {company_name: companyData.company_name,
+            company_lat: Number(companyData.company_lat), company_lng: Number(companyData.company_lng)};
+        }
+      }
+
+      let returnDuration = input.remainingDurationSec == null ? null : Number(input.remainingDurationSec);
+      if (!next && company && (!Number.isFinite(returnDuration) || returnDuration == null || returnDuration <= 0)) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        try {
+          const coordinates = `${completed.lng},${completed.lat};${company.company_lng},${company.company_lat}`;
+          const routeResponse = await fetch(
+            `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=false`,
+            {signal: controller.signal},
+          );
+          if (routeResponse.ok) {
+            const routeData = await routeResponse.json() as {routes?: Array<{duration?: number}>};
+            const routedDuration = routeData.routes?.[0]?.duration;
+            if (Number.isFinite(routedDuration) && routedDuration! > 0) returnDuration = routedDuration!;
+          }
+        } catch {
+          // A estimativa por distância abaixo mantém o aviso útil se o roteador estiver indisponível.
+        } finally {clearTimeout(timeout);}
+
+        if (!Number.isFinite(returnDuration) || returnDuration == null || returnDuration <= 0) {
+          const toRad = (value: number) => value * Math.PI / 180;
+          const dLat = toRad(company.company_lat - completed.lat);
+          const dLng = toRad(company.company_lng - completed.lng);
+          const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(completed.lat)) *
+            Math.cos(toRad(company.company_lat)) * Math.sin(dLng / 2) ** 2;
+          const straightMeters = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          returnDuration = (straightMeters * 1.28 / 38000) * 3600;
+        }
+      }
+      const remainingMinutes = !next && returnDuration != null && Number.isFinite(returnDuration) &&
+        returnDuration >= 0 && returnDuration <= 172800
+        ? Math.max(1, Math.round(returnDuration / 60)) : null;
+      const durationText = remainingMinutes == null ? null
+        : remainingMinutes >= 60
+          ? `${Math.floor(remainingMinutes / 60)}h${remainingMinutes % 60 ? ` ${remainingMinutes % 60}min` : ''}`
+          : `${remainingMinutes} min`;
       const time = new Intl.DateTimeFormat('pt-BR', {
         timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit',
       }).format(new Date(input.completedAt));
       const notice = `Entrega conclu�da: ${completed.nome}, ${completed.cidade}, �s ${time}.` +
         (next ? ` A caminho da pr�xima entrega: ${next.nome}, ${next.cidade}.` : '');
+      const returnNotice = !next && company
+        ? notice + ` Próxima parada: ${company.company_name}. ` +
+          (durationText ? `Tempo restante estimado para retorno: ~${durationText}.` : '')
+        : notice;
       const payload = {
         evento: 'entrega_concluida', id: input.eventId, rota_id: input.routeId,
         cliente: completed.nome, cidade: completed.cidade,
         endereco: `https://www.google.com/maps?q=${completed.lat},${completed.lng}`,
         telefone: completed.telefone || '', status: 'concluida', horario: input.completedAt,
-        entregador: profile.display_name, aviso: notice,
+        entregador: profile.display_name, aviso: returnNotice,
         proxima_entrega: next ? {cliente: next.nome, cidade: next.cidade,
-          endereco: `https://www.google.com/maps?q=${next.lat},${next.lng}`} : null,
-        retornando_empresa: false,
+          endereco: `https://www.google.com/maps?q=${next.lat},${next.lng}`} :
+          company ? {cliente: company.company_name, cidade: '',
+            endereco: `https://www.google.com/maps?q=${company.company_lat},${company.company_lng}`} : null,
+        tempo_restante: durationText ? `~${durationText}` : null,
+        tempo_restante_minutos: remainingMinutes,
+        retornando_empresa: !next && Boolean(company),
       };
       try {
         const controller = new AbortController();
