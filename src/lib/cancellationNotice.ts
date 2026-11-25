@@ -7,6 +7,8 @@ export interface WebhookEntrega {
   nome: string;
   cidade: string;
   telefone: string;
+  latitude: number;
+  longitude: number;
 }
 
 export interface CancellationNotice {
@@ -25,7 +27,8 @@ export interface CancellationEventPayload extends CancellationNotice {
 
 function entrega(stop: RouteStop | null | undefined): WebhookEntrega | null {
   if (!stop) return null;
-  return {id: stop.stopId, nome: stop.nome, cidade: stop.cidade, telefone: stop.telefone};
+  return {id: stop.stopId, nome: stop.nome, cidade: stop.cidade, telefone: stop.telefone,
+    latitude: stop.lat, longitude: stop.lng};
 }
 
 function firstPending(route: RoutePlan): RouteStop | null {
@@ -86,4 +89,5 @@ export function cancellationEventPayload(
     proxima_rota: notice.proxima_rota,
   };
 }
+
 
