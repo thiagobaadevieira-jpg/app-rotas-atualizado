@@ -212,6 +212,20 @@ export function LeafletMap({
     if (!map) return;
 
     let secondFrame = 0;
+    const fitRouteInCurrentSize = () => {
+      if (mode !== 'route') return;
+      const points = stops.map((stop): [number, number] => [stop.lat, stop.lng]);
+      if (points.length === 1) {
+        map.setView(points[0], 14, {animate: false});
+      } else if (points.length > 1) {
+        map.fitBounds(L.latLngBounds(points), {
+          paddingTopLeft: [64, 72],
+          paddingBottomRight: [64, 72],
+          maxZoom: 15,
+          animate: false,
+        });
+      }
+    };
     const refreshSizeAndTiles = () => {
       map.invalidateSize({animate: false, pan: false});
       map.eachLayer((layer) => {
@@ -221,9 +235,16 @@ export function LeafletMap({
 
     const firstFrame = requestAnimationFrame(() => {
       refreshSizeAndTiles();
-      secondFrame = requestAnimationFrame(refreshSizeAndTiles);
+      fitRouteInCurrentSize();
+      secondFrame = requestAnimationFrame(() => {
+        refreshSizeAndTiles();
+        fitRouteInCurrentSize();
+      });
     });
-    const delayedRefresh = window.setTimeout(refreshSizeAndTiles, 250);
+    const delayedRefresh = window.setTimeout(() => {
+      refreshSizeAndTiles();
+      fitRouteInCurrentSize();
+    }, 250);
 
     window.addEventListener('resize', refreshSizeAndTiles);
     window.addEventListener('orientationchange', refreshSizeAndTiles);
@@ -235,7 +256,7 @@ export function LeafletMap({
       window.removeEventListener('resize', refreshSizeAndTiles);
       window.removeEventListener('orientationchange', refreshSizeAndTiles);
     };
-  }, [className]);
+  }, [className, mode, stops]);
 
   return (
     <div
