@@ -1,5 +1,6 @@
 import {Edit3, ExternalLink, MessageCircle, Plus, Trash2, X} from 'lucide-react';
 import {useEffect, useState} from 'react';
+import type {FormEvent} from 'react';
 import type {WhatsAppTemplate} from '../types.ts';
 import {buildWhatsAppUrl, normalizePhoneForWhatsApp} from '../utils/geo.ts';
 
@@ -54,7 +55,7 @@ export function WhatsAppModal({
     setDraftMessage(tpl.mensagem);
   };
 
-  const handleSaveTemplate = (e: React.FormEvent) => {
+  const handleSaveTemplate = (e: FormEvent) => {
     e.preventDefault();
     const title = draftTitle.trim();
     const msg = draftMessage.trim();
@@ -95,7 +96,7 @@ export function WhatsAppModal({
             <h2 className="text-lg font-bold text-[#f3f5f2]">Mensagens do WhatsApp</h2>
             <p className="mt-0.5 text-xs text-[#9aa59c]">
               {targetName}
-              {targetPhone ? ` · ${targetPhone}` : ' · Sem telefone cadastrado'}
+              {targetPhone ? ` � ${targetPhone}` : ' � Sem telefone cadastrado'}
             </p>
           </div>
           <button
@@ -112,7 +113,7 @@ export function WhatsAppModal({
           <form onSubmit={handleSaveTemplate} className="mt-4 space-y-3">
             <div>
               <label className="mb-1 block text-xs font-semibold text-[#d5dcd4]">
-                Título da mensagem
+                T�tulo da mensagem
               </label>
               <input
                 type="text"
@@ -126,13 +127,13 @@ export function WhatsAppModal({
 
             <div>
               <label className="mb-1 block text-xs font-semibold text-[#d5dcd4]">
-                Texto pré-programado
+                Texto pr�-programado
               </label>
               <textarea
                 rows={4}
                 value={draftMessage}
                 onChange={(e) => setDraftMessage(e.target.value)}
-                placeholder="Digite a mensagem que será aberta no WhatsApp..."
+                placeholder="Digite a mensagem que ser� aberta no WhatsApp..."
                 className="w-full rounded-xl border border-[#29332a] bg-[#0d100e] p-3.5 text-sm text-[#f3f5f2] focus:border-[#baff27] focus:outline-none"
                 required
               />
@@ -161,7 +162,7 @@ export function WhatsAppModal({
           <div className="mt-4 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-[#d5dcd4]">
-                Escolha uma mensagem pré-programada
+                Escolha uma mensagem pr�-programada
               </span>
               <button
                 type="button"
@@ -235,7 +236,7 @@ export function WhatsAppModal({
 
             {!normalizedPhone ? (
               <p className="rounded-xl border border-[#ff873f]/40 bg-[#ff873f]/10 px-3.5 py-2.5 text-xs text-[#ff873f]">
-                Esta marmoraria ainda não possui um número de telefone válido cadastrado.
+                Esta marmoraria ainda n�o possui um n�mero de telefone v�lido cadastrado.
               </p>
             ) : (
               <a
@@ -256,3 +257,4 @@ export function WhatsAppModal({
     </div>
   );
 }
+
