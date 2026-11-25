@@ -28,9 +28,11 @@ export function saveWebhookConfig(url: string, key: string) {
   return call<{saved: boolean}>({action: 'save', url, key});
 }
 
-export function notifyDelivery(routeId: string, stopId: string, completedAt: string, eventId: string) {
+export function notifyDelivery(routeId: string, stopId: string, completedAt: string, eventId: string,
+  remainingDurationSec?: number) {
   return call<{sent?: boolean; skipped?: boolean}>({
     action: 'notify', routeId, stopId, completedAt, eventId,
+    ...(remainingDurationSec == null ? {} : {remainingDurationSec: String(remainingDurationSec)}),
   });
 }
 
