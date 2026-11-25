@@ -20,10 +20,11 @@ import {buildCancellationNotice, buildStopCancellationNotice} from './lib/cancel
 import type {CancellationNotice} from './lib/cancellationNotice.ts';
 import {cacheData, clearLastOfflineUser, flushChanges, lastOfflineUser, newChangeId, queueChange, readOffline, readWebhookStatus} from './lib/offlineStore.ts';
 import type {PendingChange, WebhookDispatchStatus, WebhookHistoryItem} from './lib/offlineStore.ts';
-import {arrivedDestinationId, COMPANY_DESTINATION_ID, getArrivedStopId} from './types.ts';
+import {arrivedDestinationId, COMPANY_DESTINATION_ID, getArrivedStopId, HOME_DESTINATION_ID} from './types.ts';
 import type {
   Coordinates,
   CompanyLocation,
+  FinalDestinationType,
   Marmoraria,
   RoutePlan,
   RouteStop,
@@ -94,7 +95,7 @@ export default function App() {
   const [syncing, setSyncing] = useState(false);
   const [webhookStatus, setWebhookStatus] = useState<WebhookDispatchStatus | null>(null);
   const [webhookPanelOpen, setWebhookPanelOpen] = useState(false);
-  const [completionToConfirm, setCompletionToConfirm] = useState<{routeId: string; stopId: string; name: string; returnDurationSec?: number} | null>(null);
+  const [completionToConfirm, setCompletionToConfirm] = useState<{routeId: string; stopId: string; name: string; returnDurationSec?: number; step: 'notice' | 'destination'} | null>(null);
   const syncingRef = useRef(false);
   const syncAgainRef = useRef(false);
 
@@ -117,7 +118,7 @@ export default function App() {
       setWebhookStatus(readWebhookStatus(id));
       setPendingCount(readOffline(id)?.pending.length || 0);
       if (navigator.onLine) {
-        setDataError(error instanceof Error ? `Sincronização pendente: ${error.message}` : 'Sincronização pendente.');
+        setDataError(error instanceof Error ? `Sincroniza��o pendente: ${error.message}` : 'Sincroniza��o pendente.');
       }
     } finally {
       syncingRef.current = false;
@@ -167,7 +168,7 @@ export default function App() {
     if (navigator.onLine) {
       void syncOfflineData(userId);
     } else if (!snapshot) {
-      setDataError('Conecte-se à internet uma vez para carregar suas rotas neste aparelho.');
+      setDataError('Conecte-se � internet uma vez para carregar suas rotas neste aparelho.');
     }
   }, [userId, syncOfflineData]);
 
@@ -176,7 +177,7 @@ export default function App() {
   }, [isOnline, userId, authReady, syncOfflineData]);
 
   const commitChange = useCallback(async (nextData: AppData, change: PendingChange) => {
-    if (!userId || !profile) throw new Error('Entre novamente para salvar alterações.');
+    if (!userId || !profile) throw new Error('Entre novamente para salvar altera��es.');
     const count = queueChange(userId, profile, nextData, change);
     setWebhookStatus(readWebhookStatus(userId));
     setRemote(nextData);
@@ -189,13 +190,13 @@ export default function App() {
   }, [userId, profile, syncOfflineData]);
 
   const reportError = (error: unknown) => {
-    setDataError(error instanceof Error ? error.message : 'Não foi possível salvar. Tente novamente.');
+    setDataError(error instanceof Error ? error.message : 'N�o foi poss�vel salvar. Tente novamente.');
   };
 
   const marmorarias = remote?.marmorarias || [];
   const routes = remote?.routes || [];
   const templates = remote?.templates || DEFAULT_WHATSAPP_TEMPLATES;
-  const currentUserName = profile?.display_name || 'Você';
+  const currentUserName = profile?.display_name || 'Voc�';
   const collections = useMemo(() => collectionsFromRoutes(routes, marmorarias), [routes, marmorarias]);
 
   const collectionCounts = useMemo(() => {
@@ -248,7 +249,7 @@ export default function App() {
   };
 
   const saveCustomerPhone = async (marmoraria: Marmoraria, phone: string) => {
-    if (!remote) throw new Error('Dados indisponíveis.');
+    if (!remote) throw new Error('Dados indispon�veis.');
     const updated = {...marmoraria, telefone: phone, updatedAt: new Date().toISOString()};
     await commitChange({
       ...remote,
@@ -265,6 +266,7 @@ export default function App() {
   const geoRequestInFlightRef = useRef(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const company = remote?.company || null;
+  const home = remote?.home || null;
   const {distances: routeDistances, loading: distancesLoading} = useRouteDistances(routes, company);
 
   // Handle PWA Web Share Target incoming URL parameters
@@ -325,7 +327,7 @@ export default function App() {
 
       setMarmModalCoords(null);
       setShareNotice(
-        'Não foi possível extrair as coordenadas automaticamente deste compartilhamento. Cole as coordenadas manualmente abaixo ou marque o ponto no mapa.'
+        'N�o foi poss�vel extrair as coordenadas automaticamente deste compartilhamento. Cole as coordenadas manualmente abaixo ou marque o ponto no mapa.'
       );
       setMarmModalOpen(true);
     };
@@ -343,7 +345,7 @@ export default function App() {
 
   const requestGeolocation = useCallback(() => {
     if (!('geolocation' in navigator)) {
-      setGeoError('Seu navegador não suporta geolocalização.');
+      setGeoError('Seu navegador n�o suporta geolocaliza��o.');
       return;
     }
     if (geoRequestInFlightRef.current) return;
@@ -360,7 +362,7 @@ export default function App() {
       () => {
         geoRequestInFlightRef.current = false;
         setGeoPermissionGranted(false);
-        setGeoError('Permissão de localização recusada ou indisponível.');
+        setGeoError('Permiss�o de localiza��o recusada ou indispon�vel.');
       },
       {enableHighAccuracy: true, maximumAge: 60000, timeout: 10000}
     );
@@ -378,7 +380,7 @@ export default function App() {
         if (disposed) return;
         setGeoPermissionGranted(status.state === 'granted');
         if (status.state === 'denied') {
-          setGeoError('Permissão de localização bloqueada no navegador.');
+          setGeoError('Permiss�o de localiza��o bloqueada no navegador.');
         }
       };
       syncPermission();
@@ -404,7 +406,7 @@ export default function App() {
         setGeoError(null);
       },
       () => {
-        setGeoError('Localização indisponível. Verifique a permissão do navegador.');
+        setGeoError('Localiza��o indispon�vel. Verifique a permiss�o do navegador.');
       },
       {enableHighAccuracy: true, maximumAge: 10000, timeout: 15000}
     );
@@ -412,7 +414,7 @@ export default function App() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [shouldWatchGeo, geoPermissionGranted]);
 
-  const persistRouteUpdate = useCallback((updatedRoute: RoutePlan, completedStopId?: string, sendReturnNotice = false, returnDurationSec?: number, sendCancellationNotice = false, cancellationNotice?: CancellationNotice, deliveryReturnDurationSec?: number) => {
+  const persistRouteUpdate = useCallback((updatedRoute: RoutePlan, completedStopId?: string, sendReturnNotice = false, returnDurationSec?: number, sendCancellationNotice = false, cancellationNotice?: CancellationNotice, deliveryReturnDurationSec?: number, deliveryFinalDestinationType?: FinalDestinationType) => {
     const previous = remote?.routes.find((r) => r.id === updatedRoute.id);
     if (!remote) return;
     const nextData = {...remote, routes: remote.routes.map((r) => r.id === updatedRoute.id ? updatedRoute : r)};
@@ -421,6 +423,7 @@ export default function App() {
       notifyStopId: completedStopId,
       notifyAt: completedStopId ? updatedRoute.stops.find((s) => s.stopId === completedStopId)?.updatedAt : undefined,
       deliveryReturnDurationSec: completedStopId ? deliveryReturnDurationSec : undefined,
+      deliveryFinalDestinationType: completedStopId ? deliveryFinalDestinationType : undefined,
       notifyReturnAt: sendReturnNotice ? updatedRoute.updatedAt : undefined,
       returnDurationSec: sendReturnNotice ? returnDurationSec : undefined,
       notifyCancellationAt: sendCancellationNotice ? updatedRoute.updatedAt : undefined,
@@ -469,7 +472,7 @@ export default function App() {
     };
 
     try {
-      if (!remote) throw new Error('Dados indisponíveis.');
+      if (!remote) throw new Error('Dados indispon�veis.');
       await commitChange({...remote, routes: [newRoute, ...remote.routes]},
         {id: newChangeId(), kind: 'saveRoute', value: newRoute, previousStopIds: []});
     } catch (error) {reportError(error); return;}
@@ -486,7 +489,7 @@ export default function App() {
   const handleDeleteRoute = async (routeId: string) => {
     if (profile?.role !== 'admin') return;
     try {
-      if (!remote) throw new Error('Dados indisponíveis.');
+      if (!remote) throw new Error('Dados indispon�veis.');
       await commitChange({...remote, routes: remote.routes.filter((r) => r.id !== routeId)},
         {id: newChangeId(), kind: 'deleteRoute', value: routeId});
     } catch (error) {reportError(error); return;}
@@ -512,7 +515,7 @@ export default function App() {
     if (profile?.role !== 'admin') throw new Error('Somente um administrador pode excluir paradas.');
     const target = routes.find((route) => route.id === routeId);
     if (!target?.stops.some((stop) => stop.stopId === stopId)) {
-      throw new Error('Parada não encontrada. Abra a rota novamente.');
+      throw new Error('Parada n�o encontrada. Abra a rota novamente.');
     }
     const stops = target.stops.filter((stop) => stop.stopId !== stopId);
     const nextRoute: RoutePlan = {
@@ -524,7 +527,7 @@ export default function App() {
       updatedAt: new Date().toISOString(),
     };
     try {
-      if (!remote) throw new Error('Dados indisponíveis.');
+      if (!remote) throw new Error('Dados indispon�veis.');
       await commitChange({...remote, routes: remote.routes.map((route) => route.id === routeId ? nextRoute : route)},
         {id: newChangeId(), kind: 'saveRoute', value: nextRoute, previousStopIds: target.stops.map((stop) => stop.stopId)});
       if (target.currentDestinationStopId === stopId) {
@@ -538,7 +541,7 @@ export default function App() {
   };
 
   const handleApplyRouteStops = async (selectedMarmIds: string[]) => {
-    if (!activeRoute) throw new Error('Rota não encontrada. Abra a rota novamente.');
+    if (!activeRoute) throw new Error('Rota n�o encontrada. Abra a rota novamente.');
 
     const existingByMarmId = new Map<string, RouteStop>();
     activeRoute.stops.forEach((s) => existingByMarmId.set(s.marmorariaId, s));
@@ -580,7 +583,7 @@ export default function App() {
     };
     const previousStopIds = activeRoute.stops.map((stop) => stop.stopId);
     try {
-      if (!remote) throw new Error('Dados indisponíveis.');
+      if (!remote) throw new Error('Dados indispon�veis.');
       await commitChange({...remote, routes: remote.routes.map((route) => route.id === nextRoute.id ? nextRoute : route)},
         {id: newChangeId(), kind: 'saveRoute', value: nextRoute, previousStopIds});
       if (!nextRoute.currentDestinationStopId) {
@@ -622,12 +625,13 @@ export default function App() {
     });
   };
 
-  const handleSelectCompanyDestination = (routeId: string, sendNotice = false, remainingDurationSec?: number) => {
+  const handleSelectFinalDestination = (routeId: string, type: FinalDestinationType, sendNotice = false, remainingDurationSec?: number) => {
     const target = routes.find((r) => r.id === routeId);
-    if (!target || !company) return;
+    const destination = type === 'home' ? home : company;
+    if (!target || !destination) return;
     setDirectTravel(null);
     const updated = {...target, status: 'em_andamento' as const,
-      currentDestinationStopId: COMPANY_DESTINATION_ID,
+      currentDestinationStopId: type === 'home' ? HOME_DESTINATION_ID : COMPANY_DESTINATION_ID,
       activeDriverName: currentUserName, updatedAt: new Date().toISOString()};
     persistRouteUpdate(updated, undefined, sendNotice && profile?.id === THIAGO_USER_ID && profile.role === 'admin', remainingDurationSec);
   };
@@ -728,7 +732,8 @@ export default function App() {
     status: 'pendente' | 'concluida' | 'nao_entregue',
     sendNotice = false,
     cancellationNotice?: CancellationNotice,
-    deliveryReturnDurationSec?: number
+    deliveryReturnDurationSec?: number,
+    finalDestinationType?: FinalDestinationType
   ) => {
     const target = routes.find((r) => r.id === routeId);
     if (!target) return;
@@ -738,14 +743,17 @@ export default function App() {
       s.stopId === stopId ? {...s, status, updatedAt: now} : s
     );
 
-    // Move concluída / não entregue to the end of the list; keep pending at top
+    // Move conclu�da / n�o entregue to the end of the list; keep pending at top
     const pending = updatedStops.filter((s) => s.status === 'pendente');
     const finished = updatedStops.filter((s) => s.status !== 'pendente');
 
-    const nextDest =
+    const baseNextDest =
       (target.currentDestinationStopId === stopId || getArrivedStopId(target.currentDestinationStopId) === stopId) && status !== 'pendente'
         ? null
         : target.currentDestinationStopId;
+    const nextDest = pending.length === 0 && status === 'concluida' && finalDestinationType
+      ? finalDestinationType === 'home' ? HOME_DESTINATION_ID : COMPANY_DESTINATION_ID
+      : baseNextDest;
 
     const nextStatus = target.status === 'finalizada' && status !== 'pendente'
       ? 'finalizada' : updatedStops.length > 0 ? 'em_andamento' : 'planejada';
@@ -768,7 +776,8 @@ export default function App() {
     }, sendNotice && profile?.id === THIAGO_USER_ID && profile.role === 'admin' && status === 'concluida' &&
       target.stops.find((s) => s.stopId === stopId)?.status !== 'concluida' ? stopId : undefined,
       false, undefined, sendCancellation, sendCancellation ? cancellationNotice : undefined,
-      pending.length === 0 ? deliveryReturnDurationSec : undefined);
+      pending.length === 0 ? deliveryReturnDurationSec : undefined,
+      pending.length === 0 ? finalDestinationType : undefined);
   };
 
   const requestStopStatusUpdate = (routeId: string, stopId: string,
@@ -776,7 +785,7 @@ export default function App() {
     if (status === 'nao_entregue') return;
     const stop = routes.find((route) => route.id === routeId)?.stops.find((item) => item.stopId === stopId);
     if (status === 'concluida' && stop?.status !== 'concluida' && profile?.id === THIAGO_USER_ID && profile.role === 'admin') {
-      setCompletionToConfirm({routeId, stopId, name: stop?.nome || 'esta entrega', returnDurationSec});
+      setCompletionToConfirm({routeId, stopId, name: stop?.nome || 'esta entrega', returnDurationSec, step: 'notice'});
       return;
     }
     handleUpdateStopStatus(routeId, stopId, status, false, undefined, returnDurationSec);
@@ -784,8 +793,21 @@ export default function App() {
 
   const confirmCompletion = (sendNotice: boolean) => {
     if (!completionToConfirm) return;
+    const target = routes.find((route) => route.id === completionToConfirm.routeId);
+    const isLastPending = target?.stops.filter((stop) => stop.status === 'pendente').length === 1;
+    if (sendNotice && isLastPending && (company || home)) {
+      setCompletionToConfirm({...completionToConfirm, step: 'destination'});
+      return;
+    }
     handleUpdateStopStatus(completionToConfirm.routeId, completionToConfirm.stopId, 'concluida', sendNotice,
       undefined, completionToConfirm.returnDurationSec);
+    setCompletionToConfirm(null);
+  };
+
+  const confirmFinalDestination = (type: FinalDestinationType) => {
+    if (!completionToConfirm) return;
+    handleUpdateStopStatus(completionToConfirm.routeId, completionToConfirm.stopId, 'concluida', true,
+      undefined, type === 'factory' ? completionToConfirm.returnDurationSec : undefined, type);
     setCompletionToConfirm(null);
   };
 
@@ -811,7 +833,7 @@ export default function App() {
     };
 
     try {
-      if (!remote) throw new Error('Dados indisponíveis.');
+      if (!remote) throw new Error('Dados indispon�veis.');
       const next = remote.marmorarias.some((m) => m.id === record.id)
         ? remote.marmorarias.map((m) => m.id === record.id ? record : m) : [record, ...remote.marmorarias];
       await commitChange({...remote, marmorarias: next}, {id: newChangeId(), kind: 'saveMarmoraria', value: record});
@@ -822,7 +844,7 @@ export default function App() {
   const handleDeleteMarmoraria = async (id: string) => {
     if (profile?.role !== 'admin') return;
     try {
-      if (!remote) throw new Error('Dados indisponíveis.');
+      if (!remote) throw new Error('Dados indispon�veis.');
       await commitChange({...remote, marmorarias: remote.marmorarias.filter((m) => m.id !== id)},
         {id: newChangeId(), kind: 'deleteMarmoraria', value: id});
     } catch (error) {reportError(error);}
@@ -830,7 +852,7 @@ export default function App() {
 
   const handleSaveTemplates = async (nextTemplates: WhatsAppTemplate[]) => {
     try {
-      if (!remote) throw new Error('Dados indisponíveis.');
+      if (!remote) throw new Error('Dados indispon�veis.');
       await commitChange({...remote, templates: nextTemplates},
         {id: newChangeId(), kind: 'saveTemplates', value: nextTemplates});
     } catch (error) {reportError(error);}
@@ -848,9 +870,18 @@ export default function App() {
   const handleSaveCompany = async (nextCompany: CompanyLocation | null) => {
     if (profile?.role !== 'admin') return;
     try {
-      if (!remote) throw new Error('Dados indisponíveis.');
+      if (!remote) throw new Error('Dados indispon�veis.');
       await commitChange({...remote, company: nextCompany},
         {id: newChangeId(), kind: 'saveCompany', value: nextCompany});
+    } catch (error) {reportError(error);}
+  };
+
+  const handleSaveHome = async (nextHome: CompanyLocation | null) => {
+    if (profile?.role !== 'admin') return;
+    try {
+      if (!remote) throw new Error('Dados indispon?veis.');
+      await commitChange({...remote, home: nextHome},
+        {id: newChangeId(), kind: 'saveHome', value: nextHome});
     } catch (error) {reportError(error);}
   };
 
@@ -868,11 +899,11 @@ export default function App() {
   const webhookBaseDisplay = syncing && webhookPendingCount > 0
     ? {label: 'Enviando', title: 'Webhook sendo encaminhado', color: 'text-[#baff27]', icon: Loader2}
     : webhookStatus?.state === 'failed'
-      ? {label: 'Falhou', title: 'Falha ao encaminhar o último webhook', color: 'text-red-400', icon: AlertCircle}
+      ? {label: 'Falhou', title: 'Falha ao encaminhar o �ltimo webhook', color: 'text-red-400', icon: AlertCircle}
       : webhookPendingCount > 0 || webhookStatus?.state === 'pending'
         ? {label: 'Pendente', title: `${webhookPendingCount || webhookStatus?.pending || 1} webhook(s) aguardando envio`, color: 'text-[#ff873f]', icon: Send}
         : webhookStatus?.state === 'sent'
-          ? {label: 'Enviado', title: 'Último webhook encaminhado', color: 'text-[#baff27]', icon: CheckCircle2}
+          ? {label: 'Enviado', title: '�ltimo webhook encaminhado', color: 'text-[#baff27]', icon: CheckCircle2}
           : {label: 'Webhook', title: 'Nenhum webhook pendente', color: 'text-[#6f7a71]', icon: Send};
   const webhookHistory = webhookStatus?.history || [];
   const webhookCurrentItem = webhookHistory.find((item) => item.state === webhookStatus?.state)
@@ -889,7 +920,7 @@ export default function App() {
         : webhookPendingCount > 0 || webhookStatus?.state === 'pending'
           ? {...webhookBaseDisplay, label: `${webhookTarget} pendente`, title: `${webhookCurrentItem.targetName} aguardando envio`}
           : webhookStatus?.state === 'sent'
-            ? {...webhookBaseDisplay, label: `${webhookTarget} · ${webhookTime(webhookCurrentItem.updatedAt)}`, title: `${webhookCurrentItem.targetName} encaminhado`}
+            ? {...webhookBaseDisplay, label: `${webhookTarget} � ${webhookTime(webhookCurrentItem.updatedAt)}`, title: `${webhookCurrentItem.targetName} encaminhado`}
             : webhookBaseDisplay
     : webhookBaseDisplay;
   const WebhookIcon = webhookDisplay.icon;
@@ -920,7 +951,7 @@ export default function App() {
             {profile.role === 'admin' && <button
               type="button"
               onClick={() => setSettingsOpen(true)}
-              aria-label="Configurações"
+              aria-label="Configura��es"
               className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-[#baff27] hover:bg-[#baff27]/10"
             >
               <Settings className="h-5 w-5" />
@@ -945,14 +976,14 @@ export default function App() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 id="webhook-history-title" className="text-lg font-bold text-[#f3f5f2]">Envios do webhook</h2>
-                <p className="mt-1 text-xs text-[#9aa59c]">Últimos cinco avisos gerados pelo aplicativo.</p>
+                <p className="mt-1 text-xs text-[#9aa59c]">�ltimos cinco avisos gerados pelo aplicativo.</p>
               </div>
-              <button type="button" onClick={() => setWebhookPanelOpen(false)} aria-label="Fechar histórico do webhook" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#9aa59c] hover:bg-[#202721] hover:text-[#f3f5f2]"><X className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setWebhookPanelOpen(false)} aria-label="Fechar hist�rico do webhook" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-[#9aa59c] hover:bg-[#202721] hover:text-[#f3f5f2]"><X className="h-4 w-4" /></button>
             </div>
 
             {webhookHistory.length === 0 ? (
               <div className="mt-4 rounded-xl border border-[#283129] bg-[#101411] p-4 text-sm text-[#bdc7bd]">
-                O próximo envio mostrará aqui a marmoraria, a rota, o horário e o resultado.
+                O pr�ximo envio mostrar� aqui a marmoraria, a rota, o hor�rio e o resultado.
               </div>
             ) : (
               <ul className="mt-4 max-h-[60vh] space-y-2 overflow-y-auto pr-1">
@@ -972,7 +1003,7 @@ export default function App() {
                       </div>
                       <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-[11px]">
                         <dt className="text-[#6f7a71]">Evento</dt>
-                        <dd className="text-[#bdc7bd]">{item.kind === 'delivery' ? 'Parada concluída' : item.kind === 'return' ? 'Retorno à empresa' : (item.eventLabel || 'Rota cancelada')}</dd>
+                        <dd className="text-[#bdc7bd]">{item.kind === 'delivery' ? 'Parada conclu�da' : item.kind === 'return' ? 'Retorno � empresa' : (item.eventLabel || 'Rota cancelada')}</dd>
                         <dt className="text-[#6f7a71]">Aconteceu</dt>
                         <dd className="text-[#bdc7bd] tabular-nums">{webhookDateTime(item.occurredAt)}</dd>
                         <dt className="text-[#6f7a71]">{item.state === 'sent' ? 'Enviado' : 'Atualizado'}</dt>
@@ -996,10 +1027,10 @@ export default function App() {
       {/* Main Content */}
       <main className="mx-auto max-w-6xl px-4 pt-5 sm:px-6">
         {(!isOnline || pendingCount > 0 || syncing) && <div role="status" className="mb-4 rounded-xl border border-[#ff873f]/40 bg-[#ff873f]/10 px-3 py-2 text-xs text-[#ffad73]">
-          {!isOnline ? 'Offline: alterações salvas neste aparelho. Serão sincronizadas ao voltar a conexão.' : syncing ? 'Sincronizando alterações...' :
+          {!isOnline ? 'Offline: altera��es salvas neste aparelho. Ser�o sincronizadas ao voltar a conex�o.' : syncing ? 'Sincronizando altera��es...' :
             (readOffline(userId)?.pending || []).every((change) => change.kind === 'notifyDelivery' || change.kind === 'notifyReturn' || change.kind === 'notifyCancellation')
               ? `${pendingCount} aviso(s) aguardando envio.`
-              : `${pendingCount} alteração(ões) aguardando sincronização.`}
+              : `${pendingCount} altera��o(�es) aguardando sincroniza��o.`}
           {isOnline && pendingCount > 0 && !syncing && <button type="button" onClick={() => void syncOfflineData(userId)} className="ml-2 font-bold underline">Tentar agora</button>}
         </div>}
         {dataError && <div role="alert" className="mb-4 rounded-xl border border-[#ff873f] bg-[#ff873f]/10 p-3 text-sm text-[#ffad73]">{dataError}<button type="button" onClick={() => setDataError(null)} className="ml-3 underline">Fechar</button></div>}
@@ -1026,6 +1057,7 @@ export default function App() {
                 <RoutesListView
                   routes={routes}
                   company={company}
+                  home={home}
                   distances={routeDistances}
                   onOpenRoute={handleOpenRoute}
                   onCreateRoute={() => setCreateRouteOpen(true)}
@@ -1038,6 +1070,7 @@ export default function App() {
                   route={activeRoute}
                   marmorarias={marmorarias}
                   company={company}
+                  home={home}
                   userPosition={userPosition}
                   geoError={geoError}
                   onRequestGeo={requestGeolocation}
@@ -1049,7 +1082,7 @@ export default function App() {
                   canDelete={profile.role === 'admin'}
                   onOpenAddStops={() => setAddStopsOpen(true)}
                   onSelectDestination={handleSelectDestination}
-                  onSelectCompanyDestination={handleSelectCompanyDestination}
+                  onSelectFinalDestination={handleSelectFinalDestination}
                   onStopTravel={handleStopTravel}
                   canSendReturnNotice={profile.id === THIAGO_USER_ID && profile.role === 'admin'}
                   canSendCancellationNotice={profile.id === THIAGO_USER_ID && profile.role === 'admin'}
@@ -1092,15 +1125,15 @@ export default function App() {
 
       {/* Fixed Bottom Navigation Bar */}
       <nav
-        aria-label="Navegação principal"
+        aria-label="Navega��o principal"
         className="app-bottom-nav fixed right-0 bottom-0 left-0 z-40 border-t border-[#1f2620] bg-[#0d100e]"
       >
         <div className="app-bottom-nav-row mx-auto grid max-w-6xl grid-cols-3 items-center">
           {(
             [
               {id: 'rotas', label: 'Rotas', Icon: RouteIcon},
-              {id: 'enderecos', label: 'Endereços', Icon: MapPin},
-              {id: 'relatorios', label: 'Relatórios', Icon: BarChart3},
+              {id: 'enderecos', label: 'Endere�os', Icon: MapPin},
+              {id: 'relatorios', label: 'Relat�rios', Icon: BarChart3},
             ] as const
           ).map(({id, label, Icon}) => {
             const isActive = activeTab === id;
@@ -1133,8 +1166,9 @@ export default function App() {
         <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4">
           <div role="dialog" aria-modal="true" aria-labelledby="completion-notice-title"
             className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
+            {completionToConfirm.step === 'notice' ? <>
             <h2 id="completion-notice-title" className="text-base font-bold text-[#f3f5f2]">Concluir {completionToConfirm.name}?</h2>
-            <p className="mt-2 text-sm text-[#b7c1b8]">Deseja enviar o aviso pelo WhatsApp? O envio será solicitado à automação configurada.</p>
+            <p className="mt-2 text-sm text-[#b7c1b8]">Deseja enviar o aviso pelo WhatsApp? O envio ser� solicitado � automa��o configurada.</p>
             <div className="mt-5 flex flex-col gap-2">
               <button type="button" onClick={() => confirmCompletion(true)}
                 className="inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-xl bg-[#baff27] px-4 text-sm font-bold text-[#0d100e]">
@@ -1149,15 +1183,29 @@ export default function App() {
                 <X className="h-4 w-4" />Cancelar
               </button>
             </div>
+            </> : <>
+              <h2 id="completion-notice-title" className="text-base font-bold text-[#f3f5f2]">Qual ser? o pr?ximo destino?</h2>
+              <p className="mt-2 text-sm text-[#b7c1b8]">Essa localiza??o e o tempo restante ser?o enviados no aviso da ?ltima entrega.</p>
+              <div className="mt-5 flex flex-col gap-2">
+                {company && <button type="button" onClick={() => confirmFinalDestination('factory')}
+                  className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-xl bg-[#baff27] px-4 text-sm font-bold text-[#0d100e]"><MapPin className="h-4 w-4" />F?brica</button>}
+                {home && <button type="button" onClick={() => confirmFinalDestination('home')}
+                  className="inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-xl border border-[#ff873f] px-4 text-sm font-bold text-[#ff873f]"><MapPin className="h-4 w-4" />Casa</button>}
+                <button type="button" onClick={() => setCompletionToConfirm({...completionToConfirm, step: 'notice'})}
+                  className="inline-flex min-h-[42px] w-full items-center justify-center text-sm text-[#9aa59c]">Voltar</button>
+              </div>
+            </>}
           </div>
         </div>
       )}
       <SettingsModal
         isOpen={settingsOpen}
         company={company}
+        home={home}
         canManageWebhook={profile.id === THIAGO_USER_ID && profile.role === 'admin'}
         onClose={() => setSettingsOpen(false)}
-        onSave={(next) => void handleSaveCompany(next)}
+        onSaveCompany={(next) => void handleSaveCompany(next)}
+        onSaveHome={(next) => void handleSaveHome(next)}
       />
       <MarmorariaModal
         isOpen={marmModalOpen}
@@ -1205,4 +1253,5 @@ export default function App() {
     </div>
   );
 }
+
 
