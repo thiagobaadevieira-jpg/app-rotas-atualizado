@@ -1,5 +1,6 @@
 import {Check, Link2, LocateFixed, X} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
+import type {FormEvent} from 'react';
 import type {Coordinates, Marmoraria} from '../types.ts';
 import {
   formatCoordinates,
@@ -124,7 +125,7 @@ export function MarmorariaModal({
           setCoordsInput(formatCoordinates(data.coordinates.lat, data.coordinates.lng));
         } else {
           setError(
-            'Não foi possível extrair coordenadas desse link. Cole as coordenadas manualmente (ex.: -26.460149, -48.906940) ou marque no mapa.'
+            'N�o foi poss�vel extrair coordenadas desse link. Cole as coordenadas manualmente (ex.: -26.460149, -48.906940) ou marque no mapa.'
           );
         }
       } catch {
@@ -145,7 +146,7 @@ export function MarmorariaModal({
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
-      setError('Este navegador não oferece acesso à localização.');
+      setError('Este navegador n�o oferece acesso � localiza��o.');
       return;
     }
     stopLocating();
@@ -167,18 +168,18 @@ export function MarmorariaModal({
       (locationError) => {
         stopLocating();
         setError(locationError.code === 1
-          ? 'Permita o acesso à localização no navegador para usar o ponto atual.'
-          : 'Não foi possível obter sua localização. Tente novamente em um local com sinal de GPS.');
+          ? 'Permita o acesso � localiza��o no navegador para usar o ponto atual.'
+          : 'N�o foi poss�vel obter sua localiza��o. Tente novamente em um local com sinal de GPS.');
       },
       {enableHighAccuracy: true, maximumAge: 0, timeout: 20000}
     );
     locationTimerRef.current = setTimeout(() => {
       stopLocating();
-      setError('A localização recebida não foi precisa o suficiente. Use o GPS do celular em local aberto ou marque o ponto manualmente no mapa.');
+      setError('A localiza��o recebida n�o foi precisa o suficiente. Use o GPS do celular em local aberto ou marque o ponto manualmente no mapa.');
     }, 21000);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const trimmedName = nome.trim();
     const trimmedCity = cidade.trim();
@@ -194,7 +195,7 @@ export function MarmorariaModal({
     }
     if (!parsed || !isValidCoordinates(parsed.lat, parsed.lng)) {
       setError(
-        'Coordenadas inválidas. Cole no formato "-26.460149, -48.906940" ou marque um ponto no mapa.'
+        'Coordenadas inv�lidas. Cole no formato "-26.460149, -48.906940" ou marque um ponto no mapa.'
       );
       return;
     }
@@ -303,11 +304,11 @@ export function MarmorariaModal({
               className="mt-2 inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#baff27]/50 bg-[#baff27]/10 px-3.5 text-xs font-bold text-[#baff27] hover:bg-[#baff27]/20 disabled:cursor-wait disabled:opacity-60"
             >
               <LocateFixed className={`h-4 w-4 ${locating ? 'animate-pulse' : ''}`} />
-              {locating ? 'Obtendo localização...' : 'Localização atual'}
+              {locating ? 'Obtendo localiza��o...' : 'Localiza��o atual'}
             </button>
             {locationAccuracy !== null && (
               <p role="status" className="mt-1.5 text-[11px] text-[#9aa59c]">
-                {locating ? `Aguardando GPS mais preciso (leitura atual: ±${locationAccuracy} m)...` : `Coordenadas do GPS (precisão aproximada: ±${locationAccuracy} m). Confira o ponto antes de salvar.`}
+                {locating ? `Aguardando GPS mais preciso (leitura atual: �${locationAccuracy} m)...` : `Coordenadas do GPS (precis�o aproximada: �${locationAccuracy} m). Confira o ponto antes de salvar.`}
               </p>
             )}
             <p className="mt-1 text-[11px] text-[#7b877e]">
@@ -349,7 +350,7 @@ export function MarmorariaModal({
               disabled={resolvingLink}
               className="min-h-[46px] rounded-xl bg-[#baff27] px-5 text-sm font-bold text-[#0d100e] disabled:opacity-50"
             >
-              {initialData ? 'Salvar alterações' : 'Salvar marmoraria'}
+              {initialData ? 'Salvar altera��es' : 'Salvar marmoraria'}
             </button>
           </div>
         </form>
