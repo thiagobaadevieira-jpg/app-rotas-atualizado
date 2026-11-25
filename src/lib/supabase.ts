@@ -18,10 +18,11 @@ export interface AppData {
   routes: RoutePlan[];
   templates: WhatsAppTemplate[];
   company: CompanyLocation | null;
+  home: CompanyLocation | null;
 }
 
 function client() {
-  if (!supabase) throw new Error('Configure as variáveis do Supabase para entrar.');
+  if (!supabase) throw new Error('Configure as vari�veis do Supabase para entrar.');
   return supabase;
 }
 
@@ -32,7 +33,7 @@ function checked<T>(result: {data: T; error: {message: string} | null}): T {
 
 export async function loadProfile(userId: string): Promise<Profile> {
   const data = checked(await client().from('profiles').select('id,username,display_name,role,active').eq('id', userId).single());
-  if (!data || !data.active) throw new Error('Usuário sem acesso ativo ao aplicativo.');
+  if (!data || !data.active) throw new Error('Usu�rio sem acesso ativo ao aplicativo.');
   return data as Profile;
 }
 
@@ -65,8 +66,11 @@ export async function loadAppData(): Promise<AppData> {
       activeDriverName: r.active_driver_name, createdByUserId: r.created_by_user_id || '',
       createdByName: r.created_by_name || '', createdAt: r.created_at, updatedAt: r.updated_at})),
     templates: (checked(templates) as Record<string, any>[]).map((t) => ({id: t.id, titulo: t.titulo, mensagem: t.mensagem})),
-    company: setting ? {name: setting.company_name, address: setting.company_address,
-      lat: setting.company_lat, lng: setting.company_lng} : null,
+    company: setting?.company_name && Number.isFinite(setting.company_lat) && Number.isFinite(setting.company_lng)
+      ? {name: setting.company_name, address: setting.company_address || '',
+        lat: setting.company_lat, lng: setting.company_lng} : null,
+    home: setting?.home_name && Number.isFinite(setting.home_lat) && Number.isFinite(setting.home_lng)
+      ? {name: setting.home_name, address: '', lat: setting.home_lat, lng: setting.home_lng} : null,
   };
 }
 
@@ -100,7 +104,7 @@ export async function saveRoute(route: RoutePlan, previousStopIds: string[] = []
       const remaining = checked(await db.from('route_stops').select('stop_id')
         .eq('route_id', route.id).in('stop_id', removed)) as {stop_id: string}[];
       if (remaining.length > 0) {
-        throw new Error('Algumas paradas não foram removidas. Verifique se sua conta tem permissão e tente novamente.');
+        throw new Error('Algumas paradas n�o foram removidas. Verifique se sua conta tem permiss�o e tente novamente.');
       }
     }
   }
@@ -125,5 +129,15 @@ export async function saveCompany(company: CompanyLocation | null) {
   if (company) checked(await db.from('app_settings').upsert({id: true, company_name: company.name,
     company_address: company.address, company_lat: company.lat, company_lng: company.lng,
     updated_at: new Date().toISOString()}));
-  else checked(await db.from('app_settings').delete().eq('id', true));
+  else checked(await db.from('app_settings').update({company_name: null, company_address: null,
+    company_lat: null, company_lng: null, updated_at: new Date().toISOString()}).eq('id', true));
 }
+
+export async function saveHome(home: CompanyLocation | null) {
+  const db = client();
+  if (home) checked(await db.from('app_settings').upsert({id: true, home_name: home.name,
+    home_lat: home.lat, home_lng: home.lng, updated_at: new Date().toISOString()}));
+  else checked(await db.from('app_settings').update({home_name: null, home_lat: null,
+    home_lng: null, updated_at: new Date().toISOString()}).eq('id', true));
+}
+
