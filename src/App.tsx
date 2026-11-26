@@ -7,7 +7,7 @@ import {RoutesListView} from './components/RoutesListView.tsx';
 import {DEFAULT_WHATSAPP_TEMPLATES} from './data/demoData.ts';
 import {useOnlineStatus} from './hooks/useOnlineStatus.ts';
 import {useRouteDistances} from './hooks/useRouteDistances.ts';
-import {loadAppData, loadProfile, supabase} from './lib/supabase.ts';
+import {loadAppBootstrap, supabase} from './lib/supabase.ts';
 import type {AppData, Profile} from './lib/supabase.ts';
 import {buildCancellationNotice, buildStopCancellationNotice} from './lib/cancellationNotice.ts';
 import type {CancellationNotice} from './lib/cancellationNotice.ts';
@@ -120,7 +120,7 @@ export default function App() {
     try {
       await flushChanges(id, setPendingCount);
       setWebhookStatus(readWebhookStatus(id));
-      const [nextProfile, nextData] = await Promise.all([loadProfile(id), loadAppData()]);
+      const {profile: nextProfile, data: nextData} = await loadAppBootstrap(id);
       if ((readOffline(id)?.pending || []).every((change) => change.kind === 'notifyDelivery' || change.kind === 'notifyReturn' || change.kind === 'notifyCancellation')) {
         cacheData(id, nextProfile, nextData);
         setProfile(nextProfile);
