@@ -109,6 +109,7 @@ export function AddressesView({
             return (
               <article
                 key={m.id}
+                style={{contentVisibility: 'auto', containIntrinsicSize: '72px'}}
                 className={`flex min-h-[60px] items-center gap-2 rounded-xl border px-2.5 py-1.5 ${
                   isActiveDest ? 'border-[#ff873f]/60 bg-[#1b1815]' : 'border-[#242c25] bg-[#151a16]'
                 }`}
