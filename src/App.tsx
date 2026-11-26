@@ -1,16 +1,9 @@
 import {AlertCircle, BarChart3, Check, CheckCircle2, Loader2, LogOut, MapPin, Route as RouteIcon, Send, Settings, WifiOff, X} from 'lucide-react';
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
-import {AddStopsModal} from './components/AddStopsModal.tsx';
+import {lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {AddressesView} from './components/AddressesView.tsx';
-import {CreateRouteModal} from './components/CreateRouteModal.tsx';
-import {MarmorariaModal} from './components/MarmorariaModal.tsx';
 import {LoginScreen} from './components/LoginScreen.tsx';
 import {PhoneModal} from './components/PhoneModal.tsx';
-import {RouteDetailView} from './components/RouteDetailView.tsx';
-import {ReportsView} from './components/ReportsView.tsx';
 import {RoutesListView} from './components/RoutesListView.tsx';
-import {SettingsModal} from './components/SettingsModal.tsx';
-import {WhatsAppModal} from './components/WhatsAppModal.tsx';
 import {DEFAULT_WHATSAPP_TEMPLATES} from './data/demoData.ts';
 import {useOnlineStatus} from './hooks/useOnlineStatus.ts';
 import {useRouteDistances} from './hooks/useRouteDistances.ts';
@@ -31,12 +24,33 @@ import type {
   TabId,
   WhatsAppTemplate,
 } from './types.ts';
-import {extractFirstUrl, isGoogleMapsUrl, parseCoordinatesInput} from './utils/geo.ts';
+import {extractFirstUrl, haversineMeters, isGoogleMapsUrl, parseCoordinatesInput} from './utils/geo.ts';
 import {collectionsFromRoutes} from './utils/collections.ts';
 
 const THIAGO_USER_ID = '1e5dc7d4-d1a1-47c4-b06b-21b2021b77ec';
 const GEO_POSITION_CACHE_KEY = 'rota-italik:last-position:v1';
 const GEO_POSITION_CACHE_MAX_AGE = 30 * 60 * 1000;
+
+const RouteDetailView = lazy(() => import('./components/RouteDetailView.tsx')
+  .then((module) => ({default: module.RouteDetailView})));
+const ReportsView = lazy(() => import('./components/ReportsView.tsx')
+  .then((module) => ({default: module.ReportsView})));
+const SettingsModal = lazy(() => import('./components/SettingsModal.tsx')
+  .then((module) => ({default: module.SettingsModal})));
+const MarmorariaModal = lazy(() => import('./components/MarmorariaModal.tsx')
+  .then((module) => ({default: module.MarmorariaModal})));
+const WhatsAppModal = lazy(() => import('./components/WhatsAppModal.tsx')
+  .then((module) => ({default: module.WhatsAppModal})));
+const CreateRouteModal = lazy(() => import('./components/CreateRouteModal.tsx')
+  .then((module) => ({default: module.CreateRouteModal})));
+const AddStopsModal = lazy(() => import('./components/AddStopsModal.tsx')
+  .then((module) => ({default: module.AddStopsModal})));
+
+const ViewLoading = () => (
+  <div role="status" className="flex min-h-48 items-center justify-center text-sm text-[#9aa59c]">
+    <Loader2 className="mr-2 h-4 w-4 animate-spin text-[#baff27]" />Carregando...
+  </div>
+);
 
 const readCachedPosition = (): Coordinates | null => {
   try {
@@ -264,10 +278,28 @@ export default function App() {
   const [geoError, setGeoError] = useState<string | null>(null);
   const [geoPermissionGranted, setGeoPermissionGranted] = useState(false);
   const geoRequestInFlightRef = useRef(false);
+  const lastGeoCommitRef = useRef<{position: Coordinates; at: number} | null>(
+    userPosition ? {position: userPosition, at: Date.now()} : null
+  );
+  const commitGeoPosition = useCallback((position: Coordinates, force = false) => {
+    const now = Date.now();
+    const last = lastGeoCommitRef.current;
+    if (!force && last && now - last.at < 15000 && haversineMeters(last.position, position) < 12) return;
+    lastGeoCommitRef.current = {position, at: now};
+    setUserPosition(position);
+    cachePosition(position);
+  }, []);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const company = remote?.company || null;
   const home = remote?.home || null;
-  const {distances: routeDistances, loading: distancesLoading} = useRouteDistances(routes, company);
+  const routeDistancesEnabled = activeTab === 'relatorios' || (activeTab === 'rotas' && !selectedRouteId);
+  const {distances: routeDistances, loading: distancesLoading} = useRouteDistances(
+    routes, company, routeDistancesEnabled
+  );
+  const offlinePendingChanges = useMemo(
+    () => userId ? readOffline(userId)?.pending || [] : [],
+    [userId, pendingCount, webhookStatus]
+  );
 
   // Handle PWA Web Share Target incoming URL parameters
   useEffect(() => {
@@ -354,8 +386,7 @@ export default function App() {
       (pos) => {
         geoRequestInFlightRef.current = false;
         const coords = {lat: pos.coords.latitude, lng: pos.coords.longitude};
-        setUserPosition(coords);
-        cachePosition(coords);
+        commitGeoPosition(coords, true);
         setGeoPermissionGranted(true);
         setGeoError(null);
       },
@@ -366,7 +397,7 @@ export default function App() {
       },
       {enableHighAccuracy: true, maximumAge: 60000, timeout: 10000}
     );
-  }, []);
+  }, [commitGeoPosition]);
 
   useEffect(() => {
     if (!shouldWatchGeo || !('permissions' in navigator)) return;
@@ -401,8 +432,7 @@ export default function App() {
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const coords = {lat: pos.coords.latitude, lng: pos.coords.longitude};
-        setUserPosition(coords);
-        cachePosition(coords);
+        commitGeoPosition(coords);
         setGeoError(null);
       },
       () => {
@@ -412,7 +442,7 @@ export default function App() {
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [shouldWatchGeo, geoPermissionGranted]);
+  }, [shouldWatchGeo, geoPermissionGranted, commitGeoPosition]);
 
   const persistRouteUpdate = useCallback((updatedRoute: RoutePlan, completedStopId?: string, sendReturnNotice = false, returnDurationSec?: number, sendCancellationNotice = false, cancellationNotice?: CancellationNotice, deliveryReturnDurationSec?: number, deliveryFinalDestinationType?: FinalDestinationType) => {
     const previous = remote?.routes.find((r) => r.id === updatedRoute.id);
@@ -894,7 +924,7 @@ export default function App() {
     </div>
   );
 
-  const webhookPendingCount = (readOffline(userId)?.pending || [])
+  const webhookPendingCount = offlinePendingChanges
     .filter((change) => change.kind === 'notifyDelivery' || change.kind === 'notifyReturn' || change.kind === 'notifyCancellation').length;
   const webhookBaseDisplay = syncing && webhookPendingCount > 0
     ? {label: 'Enviando', title: 'Webhook sendo encaminhado', color: 'text-[#baff27]', icon: Loader2}
@@ -1028,7 +1058,7 @@ export default function App() {
       <main className="mx-auto max-w-6xl px-4 pt-5 sm:px-6">
         {(!isOnline || pendingCount > 0 || syncing) && <div role="status" className="mb-4 rounded-xl border border-[#ff873f]/40 bg-[#ff873f]/10 px-3 py-2 text-xs text-[#ffad73]">
           {!isOnline ? 'Offline: alterações salvas neste aparelho. Serão sincronizadas ao voltar a conexão.' : syncing ? 'Sincronizando alterações...' :
-            (readOffline(userId)?.pending || []).every((change) => change.kind === 'notifyDelivery' || change.kind === 'notifyReturn' || change.kind === 'notifyCancellation')
+            offlinePendingChanges.every((change) => change.kind === 'notifyDelivery' || change.kind === 'notifyReturn' || change.kind === 'notifyCancellation')
               ? `${pendingCount} aviso(s) aguardando envio.`
               : `${pendingCount} alteração(ões) aguardando sincronização.`}
           {isOnline && pendingCount > 0 && !syncing && <button type="button" onClick={() => void syncOfflineData(userId)} className="ml-2 font-bold underline">Tentar agora</button>}
@@ -1066,30 +1096,32 @@ export default function App() {
               )}
 
               {activeTab === 'rotas' && activeRoute && (
-                <RouteDetailView
-                  route={activeRoute}
-                  marmorarias={marmorarias}
-                  company={company}
-                  home={home}
-                  userPosition={userPosition}
-                  geoError={geoError}
-                  onRequestGeo={requestGeolocation}
-                  onRenameRoute={handleRenameRoute}
-                  onDeleteRoute={(id) => void handleDeleteRoute(id)}
-                  onCancelRoute={handleCancelRoute}
-                  onCancelStop={handleCancelStop}
-                  onRemoveStop={handleRemoveStop}
-                  canDelete={profile.role === 'admin'}
-                  onOpenAddStops={() => setAddStopsOpen(true)}
-                  onSelectDestination={handleSelectDestination}
-                  onSelectFinalDestination={handleSelectFinalDestination}
-                  onStopTravel={handleStopTravel}
-                  canSendReturnNotice={profile.id === THIAGO_USER_ID && profile.role === 'admin'}
-                  canSendCancellationNotice={profile.id === THIAGO_USER_ID && profile.role === 'admin'}
-                  onReorderPendingStops={handleReorderPendingStops}
-                  onUpdateStopStatus={requestStopStatusUpdate}
-                  onOpenWhatsApp={openWhatsAppFor}
-                />
+                <Suspense fallback={<ViewLoading />}>
+                  <RouteDetailView
+                    route={activeRoute}
+                    marmorarias={marmorarias}
+                    company={company}
+                    home={home}
+                    userPosition={userPosition}
+                    geoError={geoError}
+                    onRequestGeo={requestGeolocation}
+                    onRenameRoute={handleRenameRoute}
+                    onDeleteRoute={(id) => void handleDeleteRoute(id)}
+                    onCancelRoute={handleCancelRoute}
+                    onCancelStop={handleCancelStop}
+                    onRemoveStop={handleRemoveStop}
+                    canDelete={profile.role === 'admin'}
+                    onOpenAddStops={() => setAddStopsOpen(true)}
+                    onSelectDestination={handleSelectDestination}
+                    onSelectFinalDestination={handleSelectFinalDestination}
+                    onStopTravel={handleStopTravel}
+                    canSendReturnNotice={profile.id === THIAGO_USER_ID && profile.role === 'admin'}
+                    canSendCancellationNotice={profile.id === THIAGO_USER_ID && profile.role === 'admin'}
+                    onReorderPendingStops={handleReorderPendingStops}
+                    onUpdateStopStatus={requestStopStatusUpdate}
+                    onOpenWhatsApp={openWhatsAppFor}
+                  />
+                </Suspense>
               )}
 
               {activeTab === 'enderecos' && (
@@ -1114,8 +1146,10 @@ export default function App() {
               )}
 
               {activeTab === 'relatorios' && (
-                <ReportsView collections={collections} marmorarias={marmorarias} routes={routes}
-                  distances={routeDistances} distancesLoading={distancesLoading} />
+                <Suspense fallback={<ViewLoading />}>
+                  <ReportsView collections={collections} marmorarias={marmorarias} routes={routes}
+                    distances={routeDistances} distancesLoading={distancesLoading} />
+                </Suspense>
               )}
 
             </>
@@ -1198,17 +1232,17 @@ export default function App() {
           </div>
         </div>
       )}
-      <SettingsModal
-        isOpen={settingsOpen}
+      {settingsOpen && <Suspense fallback={null}><SettingsModal
+        isOpen
         company={company}
         home={home}
         canManageWebhook={profile.id === THIAGO_USER_ID && profile.role === 'admin'}
         onClose={() => setSettingsOpen(false)}
         onSaveCompany={(next) => void handleSaveCompany(next)}
         onSaveHome={(next) => void handleSaveHome(next)}
-      />
-      <MarmorariaModal
-        isOpen={marmModalOpen}
+      /></Suspense>}
+      {marmModalOpen && <Suspense fallback={null}><MarmorariaModal
+        isOpen
         initialData={editingMarm}
         initialCoords={marmModalCoords}
         initialName={marmModalName}
@@ -1220,35 +1254,35 @@ export default function App() {
           setShareNotice(null);
         }}
         onSave={(data) => void handleSaveMarmoraria(data)}
-      />
+      /></Suspense>}
 
-      <WhatsAppModal
-        isOpen={Boolean(whatsAppTarget)}
-        targetName={whatsAppTarget?.name || ''}
-        targetPhone={whatsAppTarget?.phone || ''}
+      {whatsAppTarget && <Suspense fallback={null}><WhatsAppModal
+        isOpen
+        targetName={whatsAppTarget.name}
+        targetPhone={whatsAppTarget.phone}
         templates={templates}
         onClose={() => setWhatsAppTarget(null)}
         onSaveTemplates={(next) => void handleSaveTemplates(next)}
-      />
+      /></Suspense>}
       {phoneTarget && <PhoneModal key={phoneTarget.id} marmoraria={phoneTarget}
         onClose={() => setPhoneTarget(null)} onSave={saveCustomerPhone} />}
 
-      <CreateRouteModal
-        isOpen={createRouteOpen}
+      {createRouteOpen && <Suspense fallback={null}><CreateRouteModal
+        isOpen
         marmorarias={marmorarias}
         routes={routes}
         onClose={() => setCreateRouteOpen(false)}
         onCreate={(nome, ids) => void handleCreateRoute(nome, ids)}
-      />
+      /></Suspense>}
 
-      <AddStopsModal
-        isOpen={addStopsOpen}
+      {addStopsOpen && <Suspense fallback={null}><AddStopsModal
+        isOpen
         marmorarias={marmorarias}
         currentStops={activeRoute?.stops || []}
         routeId={activeRoute?.id || null}
         onClose={() => setAddStopsOpen(false)}
         onApply={handleApplyRouteStops}
-      />
+      /></Suspense>}
 
     </div>
   );
