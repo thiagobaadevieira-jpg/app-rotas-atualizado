@@ -148,17 +148,33 @@ export default function App() {
     if (!supabase) {setAuthReady(true); return;}
     let mounted = true;
     const cachedId = lastOfflineUser();
-    if (!navigator.onLine && cachedId && readOffline(cachedId)) {
+    const cachedSnapshot = cachedId ? readOffline(cachedId) : null;
+    let authTimeout: number | null = null;
+
+    // Open the last valid local snapshot immediately. iOS can report
+    // navigator.onLine=true even when the network is not actually reachable.
+    if (cachedId && cachedSnapshot?.profile.active) {
       setUserId(cachedId);
       setAuthReady(true);
+    }
+
+    if (!navigator.onLine) {
+      if (!cachedSnapshot) setAuthReady(true);
     } else {
+      authTimeout = window.setTimeout(() => {
+        if (!mounted) return;
+        setUserId((current) => current || (cachedSnapshot ? cachedId : null));
+        setAuthReady(true);
+      }, 6000);
       void supabase.auth.getUser().then(({data, error}) => {
         if (!mounted) return;
-        const fallback = error && cachedId && readOffline(cachedId) ? cachedId : null;
+        if (authTimeout !== null) window.clearTimeout(authTimeout);
+        const fallback = error && cachedSnapshot ? cachedId : null;
         setUserId(data.user?.id || fallback);
         setAuthReady(true);
       }).catch(() => {
-        if (mounted) {setUserId(cachedId && readOffline(cachedId) ? cachedId : null); setAuthReady(true);}
+        if (authTimeout !== null) window.clearTimeout(authTimeout);
+        if (mounted) {setUserId(cachedSnapshot ? cachedId : null); setAuthReady(true);}
       });
     }
     const {data: listener} = supabase.auth.onAuthStateChange((event, session) => {
@@ -167,7 +183,11 @@ export default function App() {
       if (session?.user.id) setUserId(session.user.id);
       else if (event === 'SIGNED_OUT') setUserId(null);
     });
-    return () => {mounted = false; listener.subscription.unsubscribe();};
+    return () => {
+      mounted = false;
+      if (authTimeout !== null) window.clearTimeout(authTimeout);
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
