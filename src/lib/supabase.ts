@@ -21,8 +21,17 @@ export interface AppData {
   home: CompanyLocation | null;
 }
 
+interface BootstrapPayload {
+  profile: Profile | null;
+  marmorarias: Record<string, any>[];
+  routes: Record<string, any>[];
+  stops: Record<string, any>[];
+  templates: Record<string, any>[];
+  settings: Record<string, any> | null;
+}
+
 function client() {
-  if (!supabase) throw new Error('Configure as vari�veis do Supabase para entrar.');
+  if (!supabase) throw new Error('Configure as variáveis do Supabase para entrar.');
   return supabase;
 }
 
@@ -33,20 +42,17 @@ function checked<T>(result: {data: T; error: {message: string} | null}): T {
 
 export async function loadProfile(userId: string): Promise<Profile> {
   const data = checked(await client().from('profiles').select('id,username,display_name,role,active').eq('id', userId).single());
-  if (!data || !data.active) throw new Error('Usu�rio sem acesso ativo ao aplicativo.');
+  if (!data || !data.active) throw new Error('Usuário sem acesso ativo ao aplicativo.');
   return data as Profile;
 }
 
-export async function loadAppData(): Promise<AppData> {
-  const db = client();
-  const [marm, routes, stops, templates, settings] = await Promise.all([
-    db.from('marmorarias').select('*').order('nome'),
-    db.from('routes').select('*').order('created_at', {ascending: false}),
-    db.from('route_stops').select('*').order('sort_order'),
-    db.from('whatsapp_templates').select('*').order('sort_order'),
-    db.from('app_settings').select('*').eq('id', true).maybeSingle(),
-  ]);
-  const stopRows = checked(stops) as Record<string, any>[];
+function appDataFromRows(
+  marmRows: Record<string, any>[],
+  routeRows: Record<string, any>[],
+  stopRows: Record<string, any>[],
+  templateRows: Record<string, any>[],
+  setting: Record<string, any> | null,
+): AppData {
   const stopsByRoute = new Map<string, RouteStop[]>();
   for (const s of stopRows) {
     const list = stopsByRoute.get(s.route_id) || [];
@@ -55,22 +61,38 @@ export async function loadAppData(): Promise<AppData> {
       status: s.status, updatedAt: s.updated_at || undefined});
     stopsByRoute.set(s.route_id, list);
   }
-  const setting = checked(settings) as Record<string, any> | null;
   return {
-    marmorarias: (checked(marm) as Record<string, any>[]).map((m) => ({id: m.id, nome: m.nome,
+    marmorarias: marmRows.map((m) => ({id: m.id, nome: m.nome,
       cidade: m.cidade, telefone: m.telefone, lat: m.lat, lng: m.lng,
       createdAt: m.created_at, updatedAt: m.updated_at})),
-    routes: (checked(routes) as Record<string, any>[]).map((r) => ({id: r.id, nome: r.nome,
+    routes: routeRows.map((r) => ({id: r.id, nome: r.nome,
       status: r.status, stops: stopsByRoute.get(r.id) || [],
       currentDestinationStopId: r.current_destination_stop_id,
       activeDriverName: r.active_driver_name, createdByUserId: r.created_by_user_id || '',
       createdByName: r.created_by_name || '', createdAt: r.created_at, updatedAt: r.updated_at})),
-    templates: (checked(templates) as Record<string, any>[]).map((t) => ({id: t.id, titulo: t.titulo, mensagem: t.mensagem})),
+    templates: templateRows.map((t) => ({id: t.id, titulo: t.titulo, mensagem: t.mensagem})),
     company: setting?.company_name && Number.isFinite(setting.company_lat) && Number.isFinite(setting.company_lng)
       ? {name: setting.company_name, address: setting.company_address || '',
         lat: setting.company_lat, lng: setting.company_lng} : null,
     home: setting?.home_name && Number.isFinite(setting.home_lat) && Number.isFinite(setting.home_lng)
       ? {name: setting.home_name, address: '', lat: setting.home_lat, lng: setting.home_lng} : null,
+  };
+}
+
+export async function loadAppBootstrap(userId: string): Promise<{profile: Profile; data: AppData}> {
+  const payload = checked(await client().rpc('get_app_bootstrap')) as BootstrapPayload;
+  if (!payload?.profile || payload.profile.id !== userId || !payload.profile.active) {
+    throw new Error('Usuário sem acesso ativo ao aplicativo.');
+  }
+  return {
+    profile: payload.profile,
+    data: appDataFromRows(
+      payload.marmorarias || [],
+      payload.routes || [],
+      payload.stops || [],
+      payload.templates || [],
+      payload.settings || null,
+    ),
   };
 }
 
@@ -104,7 +126,7 @@ export async function saveRoute(route: RoutePlan, previousStopIds: string[] = []
       const remaining = checked(await db.from('route_stops').select('stop_id')
         .eq('route_id', route.id).in('stop_id', removed)) as {stop_id: string}[];
       if (remaining.length > 0) {
-        throw new Error('Algumas paradas n�o foram removidas. Verifique se sua conta tem permiss�o e tente novamente.');
+        throw new Error('Algumas paradas não foram removidas. Verifique se sua conta tem permissão e tente novamente.');
       }
     }
   }
@@ -140,4 +162,3 @@ export async function saveHome(home: CompanyLocation | null) {
   else checked(await db.from('app_settings').update({home_name: null, home_lat: null,
     home_lng: null, updated_at: new Date().toISOString()}).eq('id', true));
 }
-
