@@ -101,9 +101,29 @@ export function buildSingleStopGoogleMapsUrl(
   stop: {lat: number; lng: number},
   origin?: Coordinates | null
 ): string {
+  const destination = `${stop.lat},${stop.lng}`;
+  const isIOS = typeof navigator !== 'undefined' && (
+    /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+
+  // The universal HTTPS URL is best while online. On iPhone without a
+  // connection, use the native Google Maps scheme so Safari is not required.
+  // Both forms request directions only; neither forces turn-by-turn navigation.
+  if (typeof navigator !== 'undefined' && !navigator.onLine && isIOS) {
+    const nativeParams = new URLSearchParams({
+      daddr: destination,
+      directionsmode: 'driving',
+    });
+    if (origin && isValidCoordinates(origin.lat, origin.lng)) {
+      nativeParams.set('saddr', `${origin.lat},${origin.lng}`);
+    }
+    return `comgooglemaps://?${nativeParams.toString()}`;
+  }
+
   const params = new URLSearchParams({
     api: '1',
-    destination: `${stop.lat},${stop.lng}`,
+    destination,
     travelmode: 'driving',
   });
   if (origin && isValidCoordinates(origin.lat, origin.lng)) {
