@@ -1095,7 +1095,7 @@ export function RouteDetailView({
             <p className="mt-2 text-sm text-[#bdc7bd]">Ao confirmar, <strong className="text-[#baff27]">{mapsConfirmation.name}</strong> aparecerá na rota como seu destino atual e o Google Maps será aberto.</p>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setMapsConfirmation(null)} className="min-h-[44px] rounded-xl border border-[#394539] px-4 text-sm text-[#e3e8e2]">Cancelar</button>
-              <a href={mapsConfirmation.url} target="_blank" rel="noopener noreferrer" onClick={() => {
+              <a href={mapsConfirmation.url} onClick={() => {
                 if (mapsConfirmation.finalDestination) startFinalReturn();
                 else if (mapsConfirmation.stopId) onSelectDestination(route.id, mapsConfirmation.stopId, true);
                 setMapsConfirmation(null);
