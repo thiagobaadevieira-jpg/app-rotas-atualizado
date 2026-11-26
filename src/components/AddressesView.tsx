@@ -133,7 +133,7 @@ export function AddressesView({
                   <button type="button" onClick={() => setMapsTarget(m)} aria-label={`Abrir ${m.nome} no Maps`} title="Maps" className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#ff873f] hover:bg-[#ff873f]/10">
                     <MapPin className="h-4 w-4" />
                   </button>
-                  <button type="button" onClick={() => onOpenWhatsApp(m)} aria-label={`Abrir WhatsApp de ${m.nome}`} title="WhatsApp" className={`inline-flex h-10 w-10 items-center justify-center rounded-lg hover:bg-[#baff27]/10 ${m.telefone.trim() ? 'text-[#f3f5f2]' : 'text-[#7b877e]'}`}>
+                  <button type="button" onClick={() => onOpenWhatsApp(m)} aria-label={`Abrir WhatsApp de ${m.nome}`} title="WhatsApp" className={`inline-flex h-10 w-10 items-center justify-center rounded-lg hover:bg-[#baff27]/10 ${m.telefone.trim() ? 'text-[#baff27]' : 'text-[#7b877e]'}`}>
                     <MessageCircle className="h-4 w-4" />
                   </button>
                   <button type="button" onClick={() => void shareAddress(m)} aria-label={`Compartilhar ${m.nome}`} title="Compartilhar" className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#d5dcd4] hover:bg-[#baff27]/10 hover:text-[#baff27]">
@@ -171,7 +171,7 @@ export function AddressesView({
       </button>
 
       {mapsTarget && (
-        <div className="app-modal-backdrop fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (event.target === event.currentTarget) setMapsTarget(null);}}>
+        <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (event.target === event.currentTarget) setMapsTarget(null);}}>
           <div role="dialog" aria-modal="true" aria-labelledby="address-maps-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
             <h2 id="address-maps-title" className="text-lg font-bold text-[#f3f5f2]">Ir para este destino?</h2>
             <p className="mt-2 text-sm text-[#bdc7bd]">Ao confirmar, <strong className="text-[#baff27]">{mapsTarget.nome}</strong> será marcado como destino atual e o Google Maps será aberto.</p>
