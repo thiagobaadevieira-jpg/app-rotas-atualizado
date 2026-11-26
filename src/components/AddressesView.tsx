@@ -1,6 +1,7 @@
 import {Edit3, MapPin, MessageCircle, Plus, Search, Share2, Trash2} from 'lucide-react';
 import {useMemo, useState} from 'react';
 import type {Marmoraria} from '../types.ts';
+import {buildSingleStopGoogleMapsUrl} from '../utils/geo.ts';
 
 interface AddressesViewProps {
   marmorarias: Marmoraria[];
@@ -175,7 +176,7 @@ export function AddressesView({
             <p className="mt-2 text-sm text-[#bdc7bd]">Ao confirmar, <strong className="text-[#baff27]">{mapsTarget.nome}</strong> será marcado como destino atual e o Google Maps será aberto.</p>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setMapsTarget(null)} className="min-h-[44px] rounded-xl border border-[#394539] px-4 text-sm text-[#e3e8e2]">Cancelar</button>
-              <a href={`https://www.google.com/maps/search/?api=1&query=${mapsTarget.lat},${mapsTarget.lng}`} target="_blank" rel="noopener noreferrer" onClick={() => {onNavigateMaps(mapsTarget); setMapsTarget(null);}} className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]">Confirmar e abrir Maps</a>
+              <a href={buildSingleStopGoogleMapsUrl(mapsTarget)} target="_blank" rel="noopener noreferrer" onClick={() => {onNavigateMaps(mapsTarget); setMapsTarget(null);}} className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]">Confirmar e abrir Maps</a>
             </div>
           </div>
         </div>
