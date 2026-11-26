@@ -1,4 +1,5 @@
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import {useEffect, useRef} from 'react';
 import type {CompanyLocation, Coordinates, RouteStop} from '../types.ts';
 
@@ -19,6 +20,8 @@ export interface AppMapProps {
 // Default center: Northern Santa Catarina (Joinville / Jaraguá do Sul / Blumenau / São Bento do Sul)
 const DEFAULT_CENTER: [number, number] = [-26.48, -49.02];
 const DEFAULT_ZOOM = 10;
+const EMPTY_STOPS: RouteStop[] = [];
+const EMPTY_IDS: string[] = [];
 
 function escapeHtml(text: string): string {
   return text
@@ -30,17 +33,18 @@ function escapeHtml(text: string): string {
 
 export function LeafletMap({
   mode,
-  stops = [],
+  stops = EMPTY_STOPS,
   company = null,
   currentDestinationStopId = null,
   userPosition = null,
   pickedPosition = null,
   onPickCoordinates,
   onSelectStop,
-  manualOrderIds = [],
+  manualOrderIds = EMPTY_IDS,
   manualOrderingActive = false,
   className = 'h-64 w-full',
 }: AppMapProps) {
+  const pickUserPosition = mode === 'pick' ? userPosition : null;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerGroupRef = useRef<L.LayerGroup | null>(null);
@@ -190,18 +194,17 @@ export function LeafletMap({
           hasFittedRef.current = fitKey;
             map.setView([pickedPosition.lat, pickedPosition.lng], 15, {animate: false});
         }
-      } else if (userPosition && hasFittedRef.current === '') {
+      } else if (pickUserPosition && hasFittedRef.current === '') {
         hasFittedRef.current = 'pick:user';
-        map.setView([userPosition.lat, userPosition.lng], 13, {animate: false});
+        map.setView([pickUserPosition.lat, pickUserPosition.lng], 13, {animate: false});
       }
 
     }
   }, [
     mode,
     stops,
-    company,
     currentDestinationStopId,
-    userPosition,
+    pickUserPosition,
     pickedPosition,
     manualOrderIds,
     manualOrderingActive,
