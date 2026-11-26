@@ -7,11 +7,17 @@ export interface RouteDistance {
   estimated: boolean;
 }
 
-export function useRouteDistances(routes: RoutePlan[], company: CompanyLocation | null) {
+const routeDistanceCache = new Map<string, RouteDistance>();
+
+export function useRouteDistances(
+  routes: RoutePlan[],
+  company: CompanyLocation | null,
+  enabled = true,
+) {
   const key = useMemo(() => JSON.stringify({
     routes: routes.map((route) => ({
       id: route.id,
-      stops: route.stops.map((stop) => [stop.stopId, stop.lat, stop.lng, stop.status]),
+      stops: route.stops.map((stop) => [stop.stopId, stop.lat, stop.lng]),
     })),
     company: company ? [company.lat, company.lng] : null,
   }), [routes, company]);
@@ -19,10 +25,26 @@ export function useRouteDistances(routes: RoutePlan[], company: CompanyLocation 
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
+    if (routes.length === 0 || !company) {
+      setDistances({});
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const calculate = async () => {
       const pairs = await Promise.all(routes.map(async (route): Promise<[string, RouteDistance]> => {
+        const cacheKey = JSON.stringify([
+          company.lat,
+          company.lng,
+          route.stops.map((stop) => [stop.lat, stop.lng]),
+        ]);
+        const cached = routeDistanceCache.get(cacheKey);
+        if (cached) return [route.id, cached];
         const points = company && route.stops.length > 0
           ? [
             {lat: company.lat, lng: company.lng},
@@ -31,10 +53,13 @@ export function useRouteDistances(routes: RoutePlan[], company: CompanyLocation 
           ]
           : [];
         const estimate = await fetchRouteLegEstimates(points);
-        return [route.id, {
+        const result = {
           meters: estimate?.totalDistanceMeters || 0,
           estimated: estimate?.source !== 'osrm',
-        }];
+        };
+        if (routeDistanceCache.size > 200) routeDistanceCache.clear();
+        routeDistanceCache.set(cacheKey, result);
+        return [route.id, result];
       }));
       if (!cancelled) {
         setDistances(Object.fromEntries(pairs));
@@ -43,7 +68,7 @@ export function useRouteDistances(routes: RoutePlan[], company: CompanyLocation 
     };
     void calculate();
     return () => {cancelled = true;};
-  }, [key]);
+  }, [key, enabled]);
 
   return {distances, loading};
 }
