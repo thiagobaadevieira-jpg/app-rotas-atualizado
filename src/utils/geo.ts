@@ -105,7 +105,6 @@ export function buildSingleStopGoogleMapsUrl(
     api: '1',
     destination: `${stop.lat},${stop.lng}`,
     travelmode: 'driving',
-    dir_action: 'navigate',
   });
   if (origin && isValidCoordinates(origin.lat, origin.lng)) {
     params.set('origin', `${origin.lat},${origin.lng}`);
