@@ -298,7 +298,8 @@ export function RouteDetailView({
   const [mapsConfirmation, setMapsConfirmation] = useState<{
     name: string;
     url: string;
-    stopId: string;
+    stopId?: string;
+    finalDestination?: boolean;
   } | null>(null);
 
   const pendingStops = useMemo(
@@ -381,12 +382,6 @@ export function RouteDetailView({
 
   const requestMaps = (stop: RouteStop, url = buildSingleStopGoogleMapsUrl(stop, userPosition)) => {
     setMapsConfirmation({name: stop.nome, url, stopId: stop.stopId});
-  };
-
-  const openStopMaps = (stop: RouteStop) => {
-    onSelectDestination(route.id, stop.stopId, true);
-    const webUrl = buildSingleStopGoogleMapsUrl(stop, userPosition);
-    window.location.assign(webUrl);
   };
 
   const confirmRemoveStop = async () => {
@@ -523,6 +518,10 @@ export function RouteDetailView({
       Boolean(canSendReturnNotice && orderedPending.length === 0 && !finalDestinationIsCurrent),
       returnDurationSec,
     );
+  };
+  const requestFinalDestinationMaps = () => {
+    if (!finalDestination) return;
+    setMapsConfirmation({name: finalDestination.name, url: finalDestinationMapsUrl, finalDestination: true});
   };
 
   return (
@@ -884,7 +883,7 @@ export function RouteDetailView({
                           returnDurationSec={finalStopReturnDurationSec}
                           routeId={route.id}
                           canDelete={canDelete}
-                          onRequestMaps={openStopMaps}
+                          onRequestMaps={requestMaps}
                           onRequestRemove={(item) => {setRemoveError(null); setStopToRemove(item);}}
                           onRequestCancelStop={(stop) => {
                             if (stop.status !== 'pendente') return;
@@ -927,7 +926,7 @@ export function RouteDetailView({
                           : 'Tempo restante: aguardando GPS'}
                       </p>
                     </div>
-                    <a href={finalDestinationMapsUrl} target="_blank" rel="noopener noreferrer" onClick={startFinalReturn} aria-label="Abrir destino final no Google Maps" className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#baff27]/40 px-3 text-xs font-bold text-[#baff27]"><Navigation className="h-4 w-4" /> Maps</a>
+                    <button type="button" onClick={requestFinalDestinationMaps} aria-label="Abrir destino final no Google Maps" className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#baff27]/40 px-3 text-xs font-bold text-[#baff27]"><Navigation className="h-4 w-4" /> Maps</button>
                   </div>
                 </div>
               )}
@@ -1096,7 +1095,11 @@ export function RouteDetailView({
             <p className="mt-2 text-sm text-[#bdc7bd]">Ao confirmar, <strong className="text-[#baff27]">{mapsConfirmation.name}</strong> aparecerá na rota como seu destino atual e o Google Maps será aberto.</p>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setMapsConfirmation(null)} className="min-h-[44px] rounded-xl border border-[#394539] px-4 text-sm text-[#e3e8e2]">Cancelar</button>
-              <a href={mapsConfirmation.url} target="_blank" rel="noopener noreferrer" onClick={() => {onSelectDestination(route.id, mapsConfirmation.stopId, true); setMapsConfirmation(null);}} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]"><Navigation className="h-4 w-4" />Confirmar e abrir Maps</a>
+              <a href={mapsConfirmation.url} target="_blank" rel="noopener noreferrer" onClick={() => {
+                if (mapsConfirmation.finalDestination) startFinalReturn();
+                else if (mapsConfirmation.stopId) onSelectDestination(route.id, mapsConfirmation.stopId, true);
+                setMapsConfirmation(null);
+              }} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]"><Navigation className="h-4 w-4" />Confirmar e abrir Maps</a>
             </div>
           </div>
         </div>
