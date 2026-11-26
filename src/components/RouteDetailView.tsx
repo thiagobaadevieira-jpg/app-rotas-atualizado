@@ -1089,7 +1089,7 @@ export function RouteDetailView({
         </div>
       )}
       {mapsConfirmation && (
-        <div className="app-modal-backdrop fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (event.target === event.currentTarget) setMapsConfirmation(null);}}>
+        <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (event.target === event.currentTarget) setMapsConfirmation(null);}}>
           <div role="dialog" aria-modal="true" aria-labelledby="confirm-maps-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
             <h2 id="confirm-maps-title" className="text-lg font-bold text-[#f3f5f2]">Ir para este destino?</h2>
             <p className="mt-2 text-sm text-[#bdc7bd]">Ao confirmar, <strong className="text-[#baff27]">{mapsConfirmation.name}</strong> aparecerá na rota como seu destino atual e o Google Maps será aberto.</p>
