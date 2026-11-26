@@ -97,39 +97,34 @@ export function buildWhatsAppUrl(phone: string, message: string): string {
   return `https://wa.me/${normalized}?text=${encodedMsg}`;
 }
 
+function preferInstalledGoogleMapsWhenOffline(url: string): string {
+  const isIOS = typeof navigator !== 'undefined' && (
+    /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
+  if (typeof navigator !== 'undefined' && !navigator.onLine && isIOS) {
+    return url.replace(/^https?:\/\//, 'comgooglemapsurl://');
+  }
+  return url;
+}
+
 export function buildSingleStopGoogleMapsUrl(
   stop: {lat: number; lng: number},
   origin?: Coordinates | null
 ): string {
   const destination = `${stop.lat},${stop.lng}`;
-  const isIOS = typeof navigator !== 'undefined' && (
-    /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  );
-
-  // The universal HTTPS URL is best while online. On iPhone without a
-  // connection, use the native Google Maps scheme so Safari is not required.
-  // Both forms request directions only; neither forces turn-by-turn navigation.
-  if (typeof navigator !== 'undefined' && !navigator.onLine && isIOS) {
-    const nativeParams = new URLSearchParams({
-      daddr: destination,
-      directionsmode: 'driving',
-    });
-    if (origin && isValidCoordinates(origin.lat, origin.lng)) {
-      nativeParams.set('saddr', `${origin.lat},${origin.lng}`);
-    }
-    return `comgooglemaps://?${nativeParams.toString()}`;
-  }
-
   const params = new URLSearchParams({
     api: '1',
     destination,
     travelmode: 'driving',
+    dir_action: 'navigate',
   });
   if (origin && isValidCoordinates(origin.lat, origin.lng)) {
     params.set('origin', `${origin.lat},${origin.lng}`);
   }
-  return `https://www.google.com/maps/dir/?${params.toString()}`;
+  return preferInstalledGoogleMapsWhenOffline(
+    `https://www.google.com/maps/dir/?${params.toString()}`
+  );
 }
 
 export interface GoogleMapsRouteSegment {
@@ -171,6 +166,7 @@ export function buildChunkedGoogleMapsRouteLinks(
       api: '1',
       destination: `${destination.lat},${destination.lng}`,
       travelmode: 'driving',
+      dir_action: 'navigate',
     });
 
     if (idx === 0) {
@@ -201,7 +197,9 @@ export function buildChunkedGoogleMapsRouteLinks(
       stopsCount: chunk.length,
       startStopNumber: startNumber,
       endStopNumber: endNumber,
-      url: `https://www.google.com/maps/dir/?${params.toString()}`,
+      url: preferInstalledGoogleMapsWhenOffline(
+        `https://www.google.com/maps/dir/?${params.toString()}`
+      ),
     };
   });
 }
