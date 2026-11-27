@@ -27,9 +27,11 @@ import type {CompanyLocation, Coordinates, FinalDestinationType, Marmoraria, Rou
 import {
   buildChunkedGoogleMapsRouteLinks,
   buildSingleStopGoogleMapsUrl,
+  buildSingleStopGoogleMapsWebUrl,
   fetchRouteLegEstimates,
   formatDistancePt,
   formatDurationPt,
+  isIOSDevice,
   organizeStopsByTravelTime,
 } from '../utils/geo.ts';
 import type {RouteEstimatesResult} from '../utils/geo.ts';
@@ -298,6 +300,7 @@ export function RouteDetailView({
   const [mapsConfirmation, setMapsConfirmation] = useState<{
     name: string;
     url: string;
+    fallbackUrl?: string;
     stopId?: string;
     finalDestination?: boolean;
   } | null>(null);
@@ -381,7 +384,14 @@ export function RouteDetailView({
   const finalDestinationIsCurrent = companyIsCurrent || homeIsCurrent;
 
   const requestMaps = (stop: RouteStop, url = buildSingleStopGoogleMapsUrl(stop, userPosition)) => {
-    setMapsConfirmation({name: stop.nome, url, stopId: stop.stopId});
+    setMapsConfirmation({
+      name: stop.nome,
+      url,
+      stopId: stop.stopId,
+      fallbackUrl: url.startsWith('comgooglemaps:')
+        ? buildSingleStopGoogleMapsWebUrl(stop, userPosition)
+        : undefined,
+    });
   };
 
   const confirmRemoveStop = async () => {
@@ -521,8 +531,24 @@ export function RouteDetailView({
   };
   const requestFinalDestinationMaps = () => {
     if (!finalDestination) return;
-    setMapsConfirmation({name: finalDestination.name, url: finalDestinationMapsUrl, finalDestination: true});
+    setMapsConfirmation({
+      name: finalDestination.name,
+      url: finalDestinationMapsUrl,
+      finalDestination: true,
+      fallbackUrl: finalDestinationMapsUrl.startsWith('comgooglemaps:')
+        ? buildSingleStopGoogleMapsWebUrl(finalDestination, userPosition)
+        : undefined,
+    });
   };
+  const applyMapsConfirmation = () => {
+    if (!mapsConfirmation) return;
+    if (mapsConfirmation.finalDestination) startFinalReturn();
+    else if (mapsConfirmation.stopId) onSelectDestination(route.id, mapsConfirmation.stopId, true);
+    setMapsConfirmation(null);
+  };
+  const isIOS = isIOSDevice();
+  const nextPendingStop = activeDest || orderedPending[0] || null;
+  const showFullRouteOption = isIOS && (orderedPending.length > 1 || Boolean(finalDestination));
 
   return (
     <div className="space-y-3">
@@ -762,6 +788,42 @@ export function RouteDetailView({
 
         {mapsSegments.length === 0 ? (
           <p className="text-xs text-[#7b877e]">Adicione paradas pendentes para abrir a navegação no Google Maps.</p>
+        ) : isIOS && nextPendingStop ? (
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => requestMaps(nextPendingStop)}
+              className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-lg bg-[#baff27] px-4 py-2.5 text-xs font-bold text-[#0d100e] transition-transform active:scale-[0.98]"
+            >
+              <Navigation className="h-3.5 w-3.5" />
+              <span>Abrir rota no Google Maps</span>
+              <ExternalLink className="h-3 w-3" />
+            </button>
+            <p className="text-center text-[11px] text-[#9aa59c]">Próxima parada: {nextPendingStop.nome}</p>
+            {showFullRouteOption && (
+              <div className="space-y-2 border-t border-[#2b352d] pt-3">
+                <p className="text-[11px] leading-relaxed text-[#9aa59c]">
+                  {finalDestination
+                    ? 'Rota completa, com as paradas e o destino final. Precisa de internet.'
+                    : 'Rota completa, com todas as paradas. Precisa de internet.'}
+                </p>
+                {mapsSegments.map((seg) => {
+                  const targetStop = orderedPending[seg.startStopNumber - 1] || nextPendingStop;
+                  return (
+                    <button
+                      key={seg.partIndex}
+                      type="button"
+                      onClick={() => requestMaps(targetStop, seg.url)}
+                      className="flex min-h-[44px] w-full items-center justify-between rounded-lg border border-[#394539] px-4 py-2 text-xs font-semibold text-[#d5dcd4] transition-transform active:scale-[0.98]"
+                    >
+                      <span className="min-w-0 text-left">{mapsSegments.length === 1 ? 'Abrir rota completa' : seg.label}</span>
+                      <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         ) : mapsSegments.length === 1 ? (
           <button
             type="button"
@@ -1105,12 +1167,13 @@ export function RouteDetailView({
             <p className="mt-2 text-sm text-[#bdc7bd]">Ao confirmar, <strong className="text-[#baff27]">{mapsConfirmation.name}</strong> aparecerá na rota como seu destino atual e o Google Maps será aberto.</p>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setMapsConfirmation(null)} className="min-h-[44px] rounded-xl border border-[#394539] px-4 text-sm text-[#e3e8e2]">Cancelar</button>
-              <a href={mapsConfirmation.url} onClick={() => {
-                if (mapsConfirmation.finalDestination) startFinalReturn();
-                else if (mapsConfirmation.stopId) onSelectDestination(route.id, mapsConfirmation.stopId, true);
-                setMapsConfirmation(null);
-              }} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]"><Navigation className="h-4 w-4" />Confirmar e abrir Maps</a>
+              <a href={mapsConfirmation.url} onClick={applyMapsConfirmation} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]"><Navigation className="h-4 w-4" />Confirmar e abrir Maps</a>
             </div>
+            {mapsConfirmation.fallbackUrl && (
+              <a href={mapsConfirmation.fallbackUrl} onClick={applyMapsConfirmation} className="mt-3 block text-center text-xs font-medium text-[#9aa59c] underline underline-offset-2">
+                Não tem o app? Abrir no navegador
+              </a>
+            )}
           </div>
         </div>
       )}
