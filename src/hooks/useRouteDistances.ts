@@ -4,6 +4,7 @@ import {fetchRouteLegEstimates} from '../utils/geo.ts';
 
 export interface RouteDistance {
   meters: number;
+  durationSec: number;
   estimated: boolean;
 }
 
@@ -55,6 +56,7 @@ export function useRouteDistances(
         const estimate = await fetchRouteLegEstimates(points);
         const result = {
           meters: estimate?.totalDistanceMeters || 0,
+          durationSec: estimate?.totalDurationSec || 0,
           estimated: estimate?.source !== 'osrm',
         };
         if (routeDistanceCache.size > 200) routeDistanceCache.clear();

@@ -737,14 +737,6 @@ export default function App() {
       activeDriverName: null, updatedAt: new Date().toISOString()});
   };
 
-  const handleFinishRoute = (routeId: string) => {
-    const target = routes.find((route) => route.id === routeId);
-    if (!target) return;
-    setDirectTravel((previous) => previous?.routeId === routeId ? null : previous);
-    void persistRouteUpdate({...target, status: 'finalizada', currentDestinationStopId: null,
-      activeDriverName: null, updatedAt: new Date().toISOString()});
-  };
-
   const handleNavigateMapsFromAddress = (m: Marmoraria) => {
     const now = new Date().toISOString();
     // If this marmoraria belongs to an in-progress (or planned) route's pending stops, mark it as current destination
@@ -1009,27 +1001,51 @@ export default function App() {
             : webhookBaseDisplay
     : webhookBaseDisplay;
   const WebhookIcon = webhookDisplay.icon;
+  const dataPendingCount = Math.max(0, pendingCount - webhookPendingCount);
+  const showCompactSync = syncing || dataPendingCount > 0;
 
   return (
     <div className="app-shell min-h-screen bg-[#0d100e] text-[#f3f5f2]">
       {/* Compact Sticky Top Bar */}
       <header className="app-header sticky top-0 z-30 border-b border-[#1f2620] bg-[#0d100e]/90 backdrop-blur-md">
         <div className="app-header-row relative mx-auto flex max-w-6xl items-center justify-center px-4 sm:px-6">
-          <button
-            type="button"
-            onClick={() => setWebhookPanelOpen(true)}
-            aria-label="Ver detalhes dos webhooks"
-            title={webhookDisplay.title}
-            className={`absolute left-4 inline-flex max-w-[112px] items-center gap-1 text-[9px] font-semibold sm:left-6 sm:max-w-[240px] sm:text-[10px] ${webhookDisplay.color}`}
-          >
-            <WebhookIcon className={`h-3.5 w-3.5 ${syncing && webhookPendingCount > 0 ? 'animate-spin' : ''}`} />
-            <span className="truncate">{webhookDisplay.label}</span>
-            {webhookPendingCount > 0 && <span className="tabular-nums">({webhookPendingCount})</span>}
-          </button>
+          <div className="absolute left-4 flex max-w-[120px] items-center gap-1.5 sm:left-6 sm:max-w-[260px]">
+            <button
+              type="button"
+              onClick={() => setWebhookPanelOpen(true)}
+              aria-label="Ver detalhes dos webhooks"
+              title={webhookDisplay.title}
+              className={`inline-flex min-w-0 items-center gap-1 text-[9px] font-semibold sm:text-[10px] ${webhookDisplay.color}`}
+            >
+              <WebhookIcon className={`h-3.5 w-3.5 shrink-0 ${syncing && webhookPendingCount > 0 ? 'animate-spin' : ''}`} />
+              <span className="truncate">{webhookDisplay.label}</span>
+              {webhookPendingCount > 0 && <span className="tabular-nums">({webhookPendingCount})</span>}
+            </button>
+            {showCompactSync && (
+              <button
+                type="button"
+                onClick={() => {if (isOnline && !syncing) void syncOfflineData(userId);}}
+                disabled={!isOnline || syncing}
+                aria-label={syncing ? 'Sincronizando alterações' : `${dataPendingCount} alteração(ões) pendentes`}
+                title={syncing ? 'Sincronizando alterações' : `${dataPendingCount} alteração(ões) pendentes. Toque para tentar novamente.`}
+                className="inline-flex shrink-0 items-center gap-1 border-l border-[#394539] pl-1.5 text-[9px] font-semibold text-[#8f9a91] disabled:opacity-80 sm:text-[10px]"
+              >
+                <Loader2 className={`h-3 w-3 ${syncing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{syncing ? 'Sincronizando' : `${dataPendingCount} pendente${dataPendingCount === 1 ? '' : 's'}`}</span>
+              </button>
+            )}
+          </div>
 
-          <span className="text-base font-extrabold tracking-tight text-[#f3f5f2] whitespace-nowrap">
-            Rota <span className="text-[#baff27]">Italik</span>
-          </span>
+          <div className="inline-flex items-center gap-2">
+            <span className="text-base font-extrabold tracking-tight text-[#f3f5f2] whitespace-nowrap">
+              Rota <span className="text-[#baff27]">Italik</span>
+            </span>
+            {!isOnline && (
+              <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-[#ff873f]" title="Sem conexão">
+                <WifiOff className="h-3 w-3" />Offline
+              </span>
+            )}
+          </div>
 
           <div className="absolute right-4 flex items-center gap-3 sm:right-6">
             <button type="button" onClick={() => {clearLastOfflineUser(); setUserId(null); void supabase?.auth.signOut({scope: 'local'});}} aria-label="Sair da conta" title={`Sair (${profile.display_name})`} className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-[#9aa59c] hover:text-[#ff873f]"><LogOut className="h-4 w-4" /></button>
@@ -1041,12 +1057,6 @@ export default function App() {
             >
               <Settings className="h-5 w-5" />
             </button>}
-            {!isOnline && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#ff873f]">
-                <WifiOff className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Offline</span>
-              </span>
-            )}
           </div>
         </div>
       </header>
@@ -1111,13 +1121,6 @@ export default function App() {
 
       {/* Main Content */}
       <main className="mx-auto max-w-6xl px-4 pt-5 sm:px-6">
-        {(!isOnline || pendingCount > 0 || syncing) && <div role="status" className="mb-4 rounded-xl border border-[#ff873f]/40 bg-[#ff873f]/10 px-3 py-2 text-xs text-[#ffad73]">
-          {!isOnline ? 'Offline: alterações salvas neste aparelho. Serão sincronizadas ao voltar a conexão.' : syncing ? 'Sincronizando alterações...' :
-            offlinePendingChanges.every((change) => change.kind === 'notifyDelivery' || change.kind === 'notifyReturn' || change.kind === 'notifyCancellation')
-              ? `${pendingCount} aviso(s) aguardando envio.`
-              : `${pendingCount} alteração(ões) aguardando sincronização.`}
-          {isOnline && pendingCount > 0 && !syncing && <button type="button" onClick={() => void syncOfflineData(userId)} className="ml-2 font-bold underline">Tentar agora</button>}
-        </div>}
         {dataError && <div role="alert" className="mb-4 rounded-xl border border-[#ff873f] bg-[#ff873f]/10 p-3 text-sm text-[#ffad73]">{dataError}<button type="button" onClick={() => setDataError(null)} className="ml-3 underline">Fechar</button></div>}
         {(() => {
           const activeRouteWithDest =
@@ -1146,7 +1149,6 @@ export default function App() {
                   distances={routeDistances}
                   onOpenRoute={handleOpenRoute}
                   onCreateRoute={() => setCreateRouteOpen(true)}
-                  onFinishRoute={handleFinishRoute}
                 />
               )}
 

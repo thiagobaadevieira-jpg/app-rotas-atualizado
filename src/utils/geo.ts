@@ -97,15 +97,12 @@ export function buildWhatsAppUrl(phone: string, message: string): string {
   return `https://wa.me/${normalized}?text=${encodedMsg}`;
 }
 
-function preferInstalledGoogleMapsWhenOffline(url: string): string {
+function isOfflineIOS(): boolean {
   const isIOS = typeof navigator !== 'undefined' && (
     /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
   );
-  if (typeof navigator !== 'undefined' && !navigator.onLine && isIOS) {
-    return url.replace(/^https?:\/\//, 'comgooglemapsurl://');
-  }
-  return url;
+  return typeof navigator !== 'undefined' && !navigator.onLine && isIOS;
 }
 
 export function buildSingleStopGoogleMapsUrl(
@@ -113,6 +110,17 @@ export function buildSingleStopGoogleMapsUrl(
   origin?: Coordinates | null
 ): string {
   const destination = `${stop.lat},${stop.lng}`;
+  if (isOfflineIOS()) {
+    const nativeParams = new URLSearchParams({
+      daddr: destination,
+      directionsmode: 'driving',
+    });
+    if (origin && isValidCoordinates(origin.lat, origin.lng)) {
+      nativeParams.set('saddr', `${origin.lat},${origin.lng}`);
+    }
+    return `comgooglemaps://?${nativeParams.toString()}`;
+  }
+
   const params = new URLSearchParams({
     api: '1',
     destination,
@@ -122,9 +130,7 @@ export function buildSingleStopGoogleMapsUrl(
   if (origin && isValidCoordinates(origin.lat, origin.lng)) {
     params.set('origin', `${origin.lat},${origin.lng}`);
   }
-  return preferInstalledGoogleMapsWhenOffline(
-    `https://www.google.com/maps/dir/?${params.toString()}`
-  );
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
 export interface GoogleMapsRouteSegment {
@@ -197,9 +203,7 @@ export function buildChunkedGoogleMapsRouteLinks(
       stopsCount: chunk.length,
       startStopNumber: startNumber,
       endStopNumber: endNumber,
-      url: preferInstalledGoogleMapsWhenOffline(
-        `https://www.google.com/maps/dir/?${params.toString()}`
-      ),
+      url: `https://www.google.com/maps/dir/?${params.toString()}`,
     };
   });
 }

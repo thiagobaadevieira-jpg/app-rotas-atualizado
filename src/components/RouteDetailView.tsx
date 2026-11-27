@@ -767,7 +767,12 @@ export function RouteDetailView({
             type="button"
             onClick={() => {
               const firstStop = activeDest || orderedPending[0];
-              if (firstStop) requestMaps(firstStop, mapsSegments[0].url);
+              if (firstStop) {
+                const url = typeof navigator !== 'undefined' && !navigator.onLine
+                  ? buildSingleStopGoogleMapsUrl(firstStop, userPosition)
+                  : mapsSegments[0].url;
+                requestMaps(firstStop, url);
+              }
             }}
             className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-lg bg-[#baff27] px-4 py-2.5 text-xs font-bold text-[#0d100e] transition-transform active:scale-[0.98]"
           >
@@ -784,7 +789,12 @@ export function RouteDetailView({
                   key={seg.partIndex}
                   onClick={() => {
                     const targetStop = orderedPending[seg.startStopNumber - 1] || orderedPending[0];
-                    if (targetStop) requestMaps(targetStop, seg.url);
+                    if (targetStop) {
+                      const url = typeof navigator !== 'undefined' && !navigator.onLine
+                        ? buildSingleStopGoogleMapsUrl(targetStop, userPosition)
+                        : seg.url;
+                      requestMaps(targetStop, url);
+                    }
                   }}
                   type="button"
                   className="flex min-h-[44px] items-center justify-between rounded-lg bg-[#baff27] px-4 py-2 text-xs font-bold text-[#0d100e] transition-transform active:scale-[0.98]"
