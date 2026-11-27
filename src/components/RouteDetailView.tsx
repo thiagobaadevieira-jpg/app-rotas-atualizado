@@ -78,6 +78,7 @@ function DirectMapsLink({
   ariaLabel,
   children,
 }: {
+  key?: string | number;
   href: string;
   onOpen: () => void;
   className: string;
@@ -148,127 +149,115 @@ function DraggableStopItem({
       dragMomentum={false}
       onDragStart={() => onDragStart(stop.stopId)}
       onDragEnd={onDragEnd}
-      className={`relative rounded-2xl border p-2 transition-colors ${
+      className={`relative rounded-xl border p-1.5 transition-colors ${
         isDragging
           ? 'z-20 border-[#baff27] bg-[#1c261d] shadow-2xl shadow-black/70'
           : isCurrent || isArrived
-          ? 'border-[#baff27]/60 bg-[#182118]'
-          : 'border-[#242c25] bg-[#151a16]'
+          ? 'border-[#39ff14]/55 bg-[#101a13]'
+          : 'border-[#254032] bg-[#101612]'
       }`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <div
-          className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2 text-left"
-        >
+      <div className="flex items-center gap-2">
+        <div className="flex min-h-[42px] min-w-0 flex-1 items-center gap-2">
           <span
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-extrabold tabular-nums ${
-              isCurrent || isArrived ? 'bg-[#baff27] text-[#0d100e]' : 'bg-[#ff873f] text-[#0d100e]'
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-extrabold tabular-nums ${
+              isCurrent || isArrived ? 'bg-[#baff27] text-[#0d100e]' : 'bg-[#ff7417] text-[#0d100e]'
             }`}
           >
             {idx + 1}
           </span>
           <div className="min-w-0 flex-1">
-            <p
-              className={`inline text-xs font-bold leading-tight ${
-                isCurrent || isArrived ? 'text-[#baff27]' : 'text-[#f3f5f2]'
-              }`}
-            >
+            <p className="truncate text-sm font-bold leading-tight text-[#f3f5f2]">
               {stop.nome}
+              <span className="ml-1 font-normal text-[#9aa59c]">· {stop.cidade}</span>
             </p>
-            <p className="ml-1 inline text-[11px] text-[#9aa59c]">
-              <span className="mr-1 text-[#5f6b61]">·</span>
-              {stop.cidade}
-              {isCurrent && (
-                <span className="font-semibold text-[#baff27]"> - Destino atual</span>
-              )}
-              {isArrived && <span className="font-semibold text-[#baff27]"> - Você chegou</span>}
-            </p>
-            <p className="mt-1 flex items-center gap-1 text-[10px] leading-none text-[#8c9a8e] tabular-nums">
+            <p className="mt-1 flex items-center gap-1 text-[10px] leading-none text-[#9aa59c] tabular-nums">
               <Clock className="h-3 w-3 shrink-0" />
               {incomingLeg
-                ? <>Tempo restante: ~{formatDurationPt(incomingLeg.remainingDurationSec)}</>
+                ? <>Tempo restante: {formatDurationPt(incomingLeg.remainingDurationSec)}</>
                 : <>Tempo restante: aguardando GPS</>}
             </p>
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1">
-        {canDelete && <button type="button" onClick={() => onRequestRemove(stop)}
-          aria-label={`Excluir ${stop.nome} desta rota`} title="Excluir parada da rota"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#b85d1e]/70 bg-[#101411] text-[#ff873f] hover:bg-[#ff873f]/15">
-          <Trash2 className="h-4 w-4" />
-        </button>}
-        {/* Press-and-hold drag handle */}
-        {pendingCount > 1 && (
-          <button
-            type="button"
-            onPointerDown={(e) => {
-              dragControls.start(e);
-            }}
-            aria-label={`Segurar e arrastar ${stop.nome} para reordenar`}
-            title="Segurar e arrastar para reordenar"
-            className={`inline-flex h-10 w-10 shrink-0 cursor-grab touch-none select-none items-center justify-center rounded-lg border transition-colors active:cursor-grabbing ${
-              isDragging
-                ? 'border-[#baff27] bg-[#baff27] text-[#0d100e]'
-                : 'border-[#262f27] bg-[#101411] text-[#9aa59c] hover:border-[#3c4b3d] hover:text-[#f3f5f2]'
-            }`}
-          >
-            <GripVertical className="h-4 w-4" />
-          </button>
-        )}
-        </div>
-      </div>
-
-      {/* Action buttons: Maps arrow, WhatsApp phone, Concluída (✓), Não entregue (X) */}
-      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-1.5 border-t border-[#2a322b] pt-2">
-        <div className="grid min-w-0 grid-cols-2 gap-1.5">
-          <DirectMapsLink
-            href={mapsHref}
-            onOpen={() => onOpenInMaps(stop)}
-            ariaLabel={`Abrir ${stop.nome} no Google Maps`}
-            className="inline-flex min-h-[40px] w-full min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-[#344038] bg-[#101411] px-1 text-[10px] font-medium text-[#e3e8e2] hover:border-[#ff873f]/50 hover:text-[#ff873f] sm:text-xs"
-          >
-            <Navigation className="h-3.5 w-3.5 shrink-0 text-[#ff873f]" />
-            <span>Maps</span>
-          </DirectMapsLink>
+        <div className="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
             onClick={() => onOpenWhatsApp(stop)}
             aria-label={`WhatsApp para ${stop.nome}`}
-            className={`inline-flex min-h-[40px] min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-[#344038] bg-[#101411] px-1 text-[10px] font-medium text-[#e3e8e2] sm:text-xs ${hasPhone ? 'hover:border-[#baff27]/50 hover:text-[#baff27]' : 'hover:border-[#d5dcd4]/50'}`}
+            title="WhatsApp"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#39ff14]/80 bg-[#07130a] text-[#39ff14] hover:bg-[#39ff14]/15"
           >
-            <Phone className={`h-3.5 w-3.5 shrink-0 ${hasPhone ? 'text-[#baff27]' : 'text-[#f3f5f2]'}`} />
-            <span>WhatsApp</span>
+            <Phone className="h-4 w-4" />
           </button>
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => onRequestRemove(stop)}
+              aria-label={`Excluir ${stop.nome} desta rota`}
+              title="Excluir parada da rota"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#ff7417]/80 bg-[#160d08] text-[#ff7417] hover:bg-[#ff7417]/15"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+          {pendingCount > 1 && (
+            <button
+              type="button"
+              onPointerDown={(event) => dragControls.start(event)}
+              aria-label={`Segurar e arrastar ${stop.nome} para reordenar`}
+              title="Segurar e arrastar para reordenar"
+              className={`inline-flex h-10 w-10 shrink-0 cursor-grab touch-none select-none items-center justify-center rounded-lg border transition-colors active:cursor-grabbing ${
+                isDragging
+                  ? 'border-[#baff27] bg-[#baff27] text-[#0d100e]'
+                  : 'border-[#34463a] bg-[#0b100d] text-[#c8d0c9] hover:border-[#baff27]/60'
+              }`}
+            >
+              <GripVertical className="h-4 w-4" />
+            </button>
+          )}
         </div>
+      </div>
 
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_40px] gap-1.5">
-          <button
-            type="button"
-            onClick={() => onUpdateStopStatus(routeId, stop.stopId, 'concluida',
-              pendingCount === 1 ? returnDurationSec : undefined)}
-            aria-label={`Marcar ${stop.nome} como concluída`}
-            title="Concluída"
-            className="inline-flex min-h-[40px] min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg bg-[#334b20] px-1 text-[10px] font-medium text-[#baff27] hover:bg-[#baff27] hover:text-[#0d100e] sm:text-xs"
-          >
-            <Check className="h-3.5 w-3.5 shrink-0" />
-            <span>Concluída</span>
-          </button>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onRequestCancelStop(stop);
-            }}
-            aria-label={`Cancelar parada ${stop.nome}`}
-            title="Não entregue"
-            className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg bg-[#4a2d1c] text-[#ff873f] hover:bg-[#ff873f] hover:text-[#0d100e]"
-          >
-            <X className="h-4 w-4 shrink-0" />
-            <span className="hidden">Não entregue</span>
-          </button>
-        </div>
+      <div className="mt-1.5 grid grid-cols-3 gap-1.5 border-t border-[#26352b] pt-1.5">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onRequestCancelStop(stop);
+          }}
+          aria-label={`Cancelar parada ${stop.nome}`}
+          className="inline-flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[#ff2d3d] bg-[#4b1016] px-2 text-xs font-bold text-white shadow-[inset_0_0_12px_rgba(255,45,61,0.12)] hover:bg-[#67141d] sm:text-sm"
+        >
+          <X className="h-5 w-5" />
+          <span>Cancelar</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onUpdateStopStatus(
+            routeId,
+            stop.stopId,
+            'concluida',
+            pendingCount === 1 ? returnDurationSec : undefined
+          )}
+          aria-label={`Marcar ${stop.nome} como concluída`}
+          className="inline-flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[#75d51d] bg-[#23440f] px-1.5 text-xs font-bold leading-tight text-[#baff27] shadow-[inset_0_0_12px_rgba(186,255,39,0.1)] hover:bg-[#315d15]"
+        >
+          <Check className="h-5 w-5 shrink-0" />
+          <span className="text-center">Concluir<br />Parada</span>
+        </button>
+
+        <DirectMapsLink
+          href={mapsHref}
+          onOpen={() => onOpenInMaps(stop)}
+          ariaLabel={`Navegar até ${stop.nome}`}
+          className="inline-flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[#39ff14] bg-[#0b3b12] px-2 text-xs font-bold text-white shadow-[inset_0_0_12px_rgba(57,255,20,0.12)] hover:bg-[#105619] sm:text-sm"
+        >
+          <Navigation className="h-5 w-5 shrink-0 text-[#39ff14]" />
+          <span>Navegar</span>
+        </DirectMapsLink>
       </div>
     </Reorder.Item>
   );
@@ -1208,4 +1197,5 @@ export function RouteDetailView({
     </div>
   );
 }
+
 
