@@ -186,7 +186,11 @@ function DraggableStopItem({
             onClick={() => onOpenWhatsApp(stop)}
             aria-label={`WhatsApp para ${stop.nome}`}
             title="WhatsApp"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#39ff14]/80 bg-[#07130a] text-[#39ff14] hover:bg-[#39ff14]/15"
+            className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors ${
+              hasPhone
+                ? 'border-[#668c35] bg-[#15200f] text-[#9bcf55] hover:bg-[#1d2d14]'
+                : 'border-[#39423b] bg-[#111512] text-[#6f7871] hover:bg-[#181d19]'
+            }`}
           >
             <Phone className="h-4 w-4" />
           </button>
@@ -228,10 +232,10 @@ function DraggableStopItem({
             onRequestCancelStop(stop);
           }}
           aria-label={`Cancelar parada ${stop.nome}`}
-          className="inline-flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[#ff2d3d] bg-[#4b1016] px-2 text-xs font-bold text-white shadow-[inset_0_0_12px_rgba(255,45,61,0.12)] hover:bg-[#67141d] sm:text-sm"
+          title="Cancelar parada"
+          className="inline-flex min-h-[44px] min-w-0 items-center justify-center rounded-lg border border-[#7d3737] bg-[#2b1718] text-[#d47a78] hover:bg-[#382021]"
         >
           <X className="h-5 w-5" />
-          <span>Cancelar</span>
         </button>
 
         <button
@@ -243,20 +247,19 @@ function DraggableStopItem({
             pendingCount === 1 ? returnDurationSec : undefined
           )}
           aria-label={`Marcar ${stop.nome} como concluída`}
-          className="inline-flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[#75d51d] bg-[#23440f] px-1.5 text-xs font-bold leading-tight text-[#baff27] shadow-[inset_0_0_12px_rgba(186,255,39,0.1)] hover:bg-[#315d15]"
+          title="Concluir parada"
+          className="inline-flex min-h-[44px] min-w-0 items-center justify-center rounded-lg border border-[#587536] bg-[#1b2815] text-[#9fc75d] hover:bg-[#25351d]"
         >
-          <Check className="h-5 w-5 shrink-0" />
-          <span className="text-center">Concluir<br />Parada</span>
+          <Check className="h-5 w-5" />
         </button>
 
         <DirectMapsLink
           href={mapsHref}
           onOpen={() => onOpenInMaps(stop)}
           ariaLabel={`Navegar até ${stop.nome}`}
-          className="inline-flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[#39ff14] bg-[#0b3b12] px-2 text-xs font-bold text-white shadow-[inset_0_0_12px_rgba(57,255,20,0.12)] hover:bg-[#105619] sm:text-sm"
+          className="inline-flex min-h-[44px] min-w-0 items-center justify-center rounded-lg border border-[#3f704b] bg-[#14251a] text-[#77bd86] hover:bg-[#1b3022]"
         >
-          <Navigation className="h-5 w-5 shrink-0 text-[#39ff14]" />
-          <span>Navegar</span>
+          <Navigation className="h-5 w-5" />
         </DirectMapsLink>
       </div>
     </Reorder.Item>
