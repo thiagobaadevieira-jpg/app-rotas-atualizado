@@ -1,4 +1,5 @@
 import {useEffect, useMemo, useState} from 'react';
+import {COMPANY_DESTINATION_ID, HOME_DESTINATION_ID} from '../types.ts';
 import type {CompanyLocation, Coordinates, RoutePlan} from '../types.ts';
 import {fetchRouteLegEstimates} from '../utils/geo.ts';
 
@@ -32,6 +33,7 @@ export function useRouteDistances(
   company: CompanyLocation | null,
   enabled = true,
   userPosition?: Coordinates | null,
+  home?: CompanyLocation | null,
 ) {
   const key = useMemo(() => JSON.stringify({
     routes: routes.map((route) => ({
@@ -41,10 +43,11 @@ export function useRouteDistances(
       stops: route.stops.map((stop) => [stop.stopId, stop.lat, stop.lng, stop.status]),
     })),
     company: company ? [company.lat, company.lng] : null,
+    home: home ? [home.lat, home.lng] : null,
     position: userPosition
       ? [Number(userPosition.lat.toFixed(3)), Number(userPosition.lng.toFixed(3))]
       : null,
-  }), [routes, company, userPosition]);
+  }), [routes, company, home, userPosition]);
   const [distances, setDistances] = useState<Record<string, RouteDistance>>({});
   const [loading, setLoading] = useState(false);
 
@@ -100,6 +103,28 @@ export function useRouteDistances(
             ? fullEstimate
             : await estimatePoints(remainingPoints, remainingCacheKey);
           remainingDurationSec = remainingEstimate.durationSec;
+        } else if (route.status !== 'finalizada') {
+          const returnDestination = route.currentDestinationStopId === HOME_DESTINATION_ID && home
+            ? home
+            : route.currentDestinationStopId === COMPANY_DESTINATION_ID
+              ? company
+              : null;
+          if (returnDestination) {
+            const lastVisitedStop = [...route.stops].reverse().find((stop) => stop.status !== 'pendente');
+            const origin = userPosition || lastVisitedStop || company;
+            const returnCacheKey = JSON.stringify([
+              'return',
+              Number(origin.lat.toFixed(3)),
+              Number(origin.lng.toFixed(3)),
+              returnDestination.lat,
+              returnDestination.lng,
+            ]);
+            const returnEstimate = await estimatePoints([
+              {lat: origin.lat, lng: origin.lng},
+              {lat: returnDestination.lat, lng: returnDestination.lng},
+            ], returnCacheKey);
+            remainingDurationSec = returnEstimate.durationSec;
+          }
         }
 
         const result = {

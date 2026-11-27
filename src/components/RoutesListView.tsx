@@ -61,6 +61,9 @@ export function RoutesListView({
               (s) => s.stopId === getArrivedStopId(route.currentDestinationStopId) && s.status === 'pendente'
             );
             const completed = route.stops.length > 0 && route.stops.every((s) => s.status === 'concluida');
+            const returningToFinalDestination =
+              route.currentDestinationStopId === COMPANY_DESTINATION_ID ||
+              route.currentDestinationStopId === HOME_DESTINATION_ID;
 
             return (
               <li key={route.id} style={{contentVisibility: 'auto', containIntrinsicSize: '76px'}} className="overflow-hidden rounded-2xl border border-[#242c25] bg-[#151a16]">
@@ -96,7 +99,8 @@ export function RoutesListView({
                       </p>
                     )}
                   </div>
-                  {route.status !== 'finalizada' && !completed && route.stops.some((stop) => stop.status === 'pendente') && (
+                  {route.status !== 'finalizada' &&
+                    (route.stops.some((stop) => stop.status === 'pendente') || returningToFinalDestination) && (
                     <div className="shrink-0 border-l border-[#2b352d] pl-3 text-right">
                       <p className="text-[9px] font-semibold uppercase tracking-wider text-[#7f8b81]">Tempo restante</p>
                       <p className="mt-1 whitespace-nowrap text-lg font-extrabold leading-none text-[#baff27] tabular-nums">
