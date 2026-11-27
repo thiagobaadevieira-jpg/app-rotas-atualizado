@@ -1,7 +1,7 @@
 import {Edit3, MapPin, MessageCircle, Plus, Search, Share2, Trash2} from 'lucide-react';
 import {useMemo, useState} from 'react';
 import type {Marmoraria} from '../types.ts';
-import {buildSingleStopGoogleMapsUrl, buildSingleStopGoogleMapsWebUrl} from '../utils/geo.ts';
+import {buildSingleStopGoogleMapsUrl} from '../utils/geo.ts';
 
 interface AddressesViewProps {
   marmorarias: Marmoraria[];
@@ -106,7 +106,6 @@ export function AddressesView({
           {filtered.map((m) => {
             const isActiveDest = activeDestinationMarmId === m.id;
             const mapsUrl = buildSingleStopGoogleMapsUrl(m);
-            const mapsFallback = mapsUrl.startsWith('comgooglemaps:') ? buildSingleStopGoogleMapsWebUrl(m) : '';
             return (
               <article
                 key={m.id}
@@ -128,11 +127,6 @@ export function AddressesView({
                   <p className="mt-1 text-[11px] font-semibold leading-tight text-[#baff27] tabular-nums">
                     Coletas: {collectionCounts[m.id] || 0}
                   </p>
-                  {mapsFallback && (
-                    <a href={mapsFallback} onClick={() => onNavigateMaps(m)} className="mt-1 inline-block text-[10px] font-medium text-[#9aa59c] underline underline-offset-2">
-                      Abrir no navegador
-                    </a>
-                  )}
                 </div>
 
                 <div className="flex shrink-0 items-center gap-0.5">
