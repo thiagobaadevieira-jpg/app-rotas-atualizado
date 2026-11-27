@@ -28,12 +28,7 @@ export function AddressesView({
 }: AddressesViewProps) {
   const [query, setQuery] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<Marmoraria | null>(null);
-  const [mapsTarget, setMapsTarget] = useState<Marmoraria | null>(null);
   const [shareNotice, setShareNotice] = useState<string | null>(null);
-  const mapsTargetUrl = mapsTarget ? buildSingleStopGoogleMapsUrl(mapsTarget) : '';
-  const mapsTargetFallback = mapsTarget && mapsTargetUrl.startsWith('comgooglemaps:')
-    ? buildSingleStopGoogleMapsWebUrl(mapsTarget)
-    : '';
 
   const shareAddress = async (m: Marmoraria) => {
     const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${m.lat},${m.lng}`)}`;
@@ -110,6 +105,8 @@ export function AddressesView({
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
           {filtered.map((m) => {
             const isActiveDest = activeDestinationMarmId === m.id;
+            const mapsUrl = buildSingleStopGoogleMapsUrl(m);
+            const mapsFallback = mapsUrl.startsWith('comgooglemaps:') ? buildSingleStopGoogleMapsWebUrl(m) : '';
             return (
               <article
                 key={m.id}
@@ -131,12 +128,17 @@ export function AddressesView({
                   <p className="mt-1 text-[11px] font-semibold leading-tight text-[#baff27] tabular-nums">
                     Coletas: {collectionCounts[m.id] || 0}
                   </p>
+                  {mapsFallback && (
+                    <a href={mapsFallback} onClick={() => onNavigateMaps(m)} className="mt-1 inline-block text-[10px] font-medium text-[#9aa59c] underline underline-offset-2">
+                      Abrir no navegador
+                    </a>
+                  )}
                 </div>
 
                 <div className="flex shrink-0 items-center gap-0.5">
-                  <button type="button" onClick={() => setMapsTarget(m)} aria-label={`Abrir ${m.nome} no Maps`} title="Maps" className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#ff873f] hover:bg-[#ff873f]/10">
+                  <a href={mapsUrl} onClick={() => onNavigateMaps(m)} aria-label={`Abrir ${m.nome} no Maps`} title="Maps" className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-[#ff873f] hover:bg-[#ff873f]/10">
                     <MapPin className="h-4 w-4" />
-                  </button>
+                  </a>
                   <button type="button" onClick={() => onOpenWhatsApp(m)} aria-label={`Abrir WhatsApp de ${m.nome}`} title="WhatsApp" className={`inline-flex h-10 w-10 items-center justify-center rounded-lg hover:bg-[#baff27]/10 ${m.telefone.trim() ? 'text-[#baff27]' : 'text-[#7b877e]'}`}>
                     <MessageCircle className="h-4 w-4" />
                   </button>
@@ -173,24 +175,6 @@ export function AddressesView({
       >
         <Plus className="h-6 w-6" />
       </button>
-
-      {mapsTarget && (
-        <div className="app-modal-backdrop app-modal-centered fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 px-4" role="presentation" onMouseDown={(event) => {if (event.target === event.currentTarget) setMapsTarget(null);}}>
-          <div role="dialog" aria-modal="true" aria-labelledby="address-maps-title" className="w-full max-w-sm rounded-2xl border border-[#394539] bg-[#151a16] p-5 shadow-2xl">
-            <h2 id="address-maps-title" className="text-lg font-bold text-[#f3f5f2]">Ir para este destino?</h2>
-            <p className="mt-2 text-sm text-[#bdc7bd]">Ao confirmar, <strong className="text-[#baff27]">{mapsTarget.nome}</strong> será marcado como destino atual e o Google Maps será aberto.</p>
-            <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={() => setMapsTarget(null)} className="min-h-[44px] rounded-xl border border-[#394539] px-4 text-sm text-[#e3e8e2]">Cancelar</button>
-              <a href={mapsTargetUrl} onClick={() => {onNavigateMaps(mapsTarget); setMapsTarget(null);}} className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]">Confirmar e abrir Maps</a>
-            </div>
-            {mapsTargetFallback && (
-              <a href={mapsTargetFallback} onClick={() => {onNavigateMaps(mapsTarget); setMapsTarget(null);}} className="mt-3 block text-center text-xs font-medium text-[#9aa59c] underline underline-offset-2">
-                Não tem o app? Abrir no navegador
-              </a>
-            )}
-          </div>
-        </div>
-      )}
 
       {deleteTarget && (
         <div

@@ -20,8 +20,9 @@ import {
 } from 'lucide-react';
 import {Reorder, useDragControls} from 'motion/react';
 import {useEffect, useMemo, useRef, useState} from 'react';
-import type {FormEvent} from 'react';
+import type {FormEvent, ReactNode} from 'react';
 import {createPortal} from 'react-dom';
+import {useOnlineStatus} from '../hooks/useOnlineStatus.ts';
 import {COMPANY_DESTINATION_ID, getArrivedStopId, HOME_DESTINATION_ID} from '../types.ts';
 import type {CompanyLocation, Coordinates, FinalDestinationType, Marmoraria, RoutePlan, RouteStop} from '../types.ts';
 import {
@@ -71,6 +72,41 @@ interface IncomingLegInfo {
   remainingDurationSec: number;
 }
 
+function browserMapsFallback(
+  url: string,
+  stop: {lat: number; lng: number},
+  origin?: Coordinates | null,
+): string | undefined {
+  return url.startsWith('comgooglemaps:') ? buildSingleStopGoogleMapsWebUrl(stop, origin) : undefined;
+}
+
+function DirectMapsLink({
+  href,
+  fallbackHref,
+  onOpen,
+  className,
+  ariaLabel,
+  children,
+}: {
+  href: string;
+  fallbackHref?: string;
+  onOpen: () => void;
+  className: string;
+  ariaLabel?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-1">
+      <a href={href} onClick={onOpen} aria-label={ariaLabel} className={className}>{children}</a>
+      {fallbackHref && (
+        <a href={fallbackHref} onClick={onOpen} className="block text-center text-[10px] font-medium leading-tight text-[#9aa59c] underline underline-offset-2">
+          Abrir no navegador
+        </a>
+      )}
+    </div>
+  );
+}
+
 interface DraggableStopItemProps {
   key?: string;
   stop: RouteStop;
@@ -84,7 +120,8 @@ interface DraggableStopItemProps {
   returnDurationSec?: number;
   routeId: string;
   canDelete: boolean;
-  onRequestMaps: (stop: RouteStop) => void;
+  userPosition: Coordinates | null;
+  onOpenInMaps: (stop: RouteStop) => void;
   onRequestRemove: (stop: RouteStop) => void;
   onRequestCancelStop: (stop: RouteStop) => void;
   onUpdateStopStatus: (
@@ -110,7 +147,8 @@ function DraggableStopItem({
   returnDurationSec,
   routeId,
   canDelete,
-  onRequestMaps,
+  userPosition,
+  onOpenInMaps,
   onRequestRemove,
   onRequestCancelStop,
   onUpdateStopStatus,
@@ -119,6 +157,8 @@ function DraggableStopItem({
   onDragEnd,
 }: DraggableStopItemProps) {
   const dragControls = useDragControls();
+  const mapsHref = buildSingleStopGoogleMapsUrl(stop, userPosition);
+  const mapsFallback = browserMapsFallback(mapsHref, stop, userPosition);
 
   return (
     <Reorder.Item
@@ -203,15 +243,16 @@ function DraggableStopItem({
       {/* Action buttons: Maps arrow, WhatsApp phone, Concluída (✓), Não entregue (X) */}
       <div className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-1.5 border-t border-[#2a322b] pt-2">
         <div className="grid min-w-0 grid-cols-2 gap-1.5">
-          <button
-            type="button"
-            onClick={() => onRequestMaps(stop)}
-            aria-label={`Abrir ${stop.nome} no Google Maps`}
-            className="inline-flex min-h-[40px] min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-[#344038] bg-[#101411] px-1 text-[10px] font-medium text-[#e3e8e2] hover:border-[#ff873f]/50 hover:text-[#ff873f] sm:text-xs"
+          <DirectMapsLink
+            href={mapsHref}
+            fallbackHref={mapsFallback}
+            onOpen={() => onOpenInMaps(stop)}
+            ariaLabel={`Abrir ${stop.nome} no Google Maps`}
+            className="inline-flex min-h-[40px] w-full min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-[#344038] bg-[#101411] px-1 text-[10px] font-medium text-[#e3e8e2] hover:border-[#ff873f]/50 hover:text-[#ff873f] sm:text-xs"
           >
             <Navigation className="h-3.5 w-3.5 shrink-0 text-[#ff873f]" />
             <span>Maps</span>
-          </button>
+          </DirectMapsLink>
           <button
             type="button"
             onClick={() => onOpenWhatsApp(stop)}
@@ -300,10 +341,9 @@ export function RouteDetailView({
   const [mapsConfirmation, setMapsConfirmation] = useState<{
     name: string;
     url: string;
-    fallbackUrl?: string;
     stopId?: string;
-    finalDestination?: boolean;
   } | null>(null);
+  const isOnline = useOnlineStatus();
 
   const pendingStops = useMemo(
     () => route.stops.filter((s) => s.status === 'pendente'),
@@ -383,15 +423,11 @@ export function RouteDetailView({
   const finalDestinationType: FinalDestinationType = homeIsCurrent && home ? 'home' : 'factory';
   const finalDestinationIsCurrent = companyIsCurrent || homeIsCurrent;
 
-  const requestMaps = (stop: RouteStop, url = buildSingleStopGoogleMapsUrl(stop, userPosition)) => {
-    setMapsConfirmation({
-      name: stop.nome,
-      url,
-      stopId: stop.stopId,
-      fallbackUrl: url.startsWith('comgooglemaps:')
-        ? buildSingleStopGoogleMapsWebUrl(stop, userPosition)
-        : undefined,
-    });
+  const openStopInMaps = (stop: RouteStop) => {
+    onSelectDestination(route.id, stop.stopId, true);
+  };
+  const requestFullRoute = (stop: RouteStop, url: string) => {
+    setMapsConfirmation({name: stop.nome, url, stopId: stop.stopId});
   };
 
   const confirmRemoveStop = async () => {
@@ -529,25 +565,20 @@ export function RouteDetailView({
       returnDurationSec,
     );
   };
-  const requestFinalDestinationMaps = () => {
-    if (!finalDestination) return;
-    setMapsConfirmation({
-      name: finalDestination.name,
-      url: finalDestinationMapsUrl,
-      finalDestination: true,
-      fallbackUrl: finalDestinationMapsUrl.startsWith('comgooglemaps:')
-        ? buildSingleStopGoogleMapsWebUrl(finalDestination, userPosition)
-        : undefined,
-    });
-  };
+  const finalDestinationFallback = finalDestination
+    ? browserMapsFallback(finalDestinationMapsUrl, finalDestination, userPosition)
+    : undefined;
   const applyMapsConfirmation = () => {
-    if (!mapsConfirmation) return;
-    if (mapsConfirmation.finalDestination) startFinalReturn();
-    else if (mapsConfirmation.stopId) onSelectDestination(route.id, mapsConfirmation.stopId, true);
+    if (!mapsConfirmation?.stopId) return;
+    onSelectDestination(route.id, mapsConfirmation.stopId, true);
     setMapsConfirmation(null);
   };
   const isIOS = isIOSDevice();
   const nextPendingStop = activeDest || orderedPending[0] || null;
+  const nextPendingMapsUrl = nextPendingStop ? buildSingleStopGoogleMapsUrl(nextPendingStop, userPosition) : '';
+  const nextPendingMapsFallback = nextPendingStop
+    ? browserMapsFallback(nextPendingMapsUrl, nextPendingStop, userPosition)
+    : undefined;
   const showFullRouteOption = isIOS && (orderedPending.length > 1 || Boolean(finalDestination));
 
   return (
@@ -790,16 +821,21 @@ export function RouteDetailView({
           <p className="text-xs text-[#7b877e]">Adicione paradas pendentes para abrir a navegação no Google Maps.</p>
         ) : isIOS && nextPendingStop ? (
           <div className="space-y-2">
-            <button
-              type="button"
-              onClick={() => requestMaps(nextPendingStop)}
+            <a
+              href={nextPendingMapsUrl}
+              onClick={() => openStopInMaps(nextPendingStop)}
               className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-lg bg-[#baff27] px-4 py-2.5 text-xs font-bold text-[#0d100e] transition-transform active:scale-[0.98]"
             >
               <Navigation className="h-3.5 w-3.5" />
               <span>Abrir rota no Google Maps</span>
               <ExternalLink className="h-3 w-3" />
-            </button>
+            </a>
             <p className="text-center text-[11px] text-[#9aa59c]">Próxima parada: {nextPendingStop.nome}</p>
+            {nextPendingMapsFallback && (
+              <a href={nextPendingMapsFallback} onClick={() => openStopInMaps(nextPendingStop)} className="block text-center text-[11px] font-medium text-[#9aa59c] underline underline-offset-2">
+                Abrir no navegador
+              </a>
+            )}
             {showFullRouteOption && (
               <div className="space-y-2 border-t border-[#2b352d] pt-3">
                 <p className="text-[11px] leading-relaxed text-[#9aa59c]">
@@ -813,7 +849,7 @@ export function RouteDetailView({
                     <button
                       key={seg.partIndex}
                       type="button"
-                      onClick={() => requestMaps(targetStop, seg.url)}
+                      onClick={() => requestFullRoute(targetStop, seg.url)}
                       className="flex min-h-[44px] w-full items-center justify-between rounded-lg border border-[#394539] px-4 py-2 text-xs font-semibold text-[#d5dcd4] transition-transform active:scale-[0.98]"
                     >
                       <span className="min-w-0 text-left">{mapsSegments.length === 1 ? 'Abrir rota completa' : seg.label}</span>
@@ -824,17 +860,23 @@ export function RouteDetailView({
               </div>
             )}
           </div>
+        ) : mapsSegments.length === 1 && !isOnline && nextPendingStop ? (
+          <DirectMapsLink
+            href={nextPendingMapsUrl}
+            fallbackHref={nextPendingMapsFallback}
+            onOpen={() => openStopInMaps(nextPendingStop)}
+            className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-lg bg-[#baff27] px-4 py-2.5 text-xs font-bold text-[#0d100e] transition-transform active:scale-[0.98]"
+          >
+            <Navigation className="h-3.5 w-3.5" />
+            <span>Abrir rota no Google Maps</span>
+            <ExternalLink className="h-3 w-3" />
+          </DirectMapsLink>
         ) : mapsSegments.length === 1 ? (
           <button
             type="button"
             onClick={() => {
               const firstStop = activeDest || orderedPending[0];
-              if (firstStop) {
-                const url = typeof navigator !== 'undefined' && !navigator.onLine
-                  ? buildSingleStopGoogleMapsUrl(firstStop, userPosition)
-                  : mapsSegments[0].url;
-                requestMaps(firstStop, url);
-              }
+              if (firstStop) requestFullRoute(firstStop, mapsSegments[0].url);
             }}
             className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-lg bg-[#baff27] px-4 py-2.5 text-xs font-bold text-[#0d100e] transition-transform active:scale-[0.98]"
           >
@@ -842,6 +884,29 @@ export function RouteDetailView({
             <span>Abrir rota no Google Maps</span>
             <ExternalLink className="h-3 w-3" />
           </button>
+        ) : !isOnline ? (
+          <div className="space-y-2">
+            <p className="text-[11px] font-medium text-[#ff873f]">Rota dividida em partes por causa do limite do Google Maps:</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {mapsSegments.map((seg) => {
+                const targetStop = orderedPending[seg.startStopNumber - 1] || orderedPending[0];
+                if (!targetStop) return null;
+                const href = buildSingleStopGoogleMapsUrl(targetStop, userPosition);
+                return (
+                  <DirectMapsLink
+                    key={seg.partIndex}
+                    href={href}
+                    fallbackHref={browserMapsFallback(href, targetStop, userPosition)}
+                    onOpen={() => openStopInMaps(targetStop)}
+                    className="flex min-h-[44px] items-center justify-between rounded-lg bg-[#baff27] px-4 py-2 text-xs font-bold text-[#0d100e] transition-transform active:scale-[0.98]"
+                  >
+                    <span>{seg.label}</span>
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                  </DirectMapsLink>
+                );
+              })}
+            </div>
+          </div>
         ) : (
           <div className="space-y-2">
             <p className="text-[11px] font-medium text-[#ff873f]">Rota dividida em partes por causa do limite do Google Maps:</p>
@@ -851,12 +916,7 @@ export function RouteDetailView({
                   key={seg.partIndex}
                   onClick={() => {
                     const targetStop = orderedPending[seg.startStopNumber - 1] || orderedPending[0];
-                    if (targetStop) {
-                      const url = typeof navigator !== 'undefined' && !navigator.onLine
-                        ? buildSingleStopGoogleMapsUrl(targetStop, userPosition)
-                        : seg.url;
-                      requestMaps(targetStop, url);
-                    }
+                    if (targetStop) requestFullRoute(targetStop, seg.url);
                   }}
                   type="button"
                   className="flex min-h-[44px] items-center justify-between rounded-lg bg-[#baff27] px-4 py-2 text-xs font-bold text-[#0d100e] transition-transform active:scale-[0.98]"
@@ -955,7 +1015,8 @@ export function RouteDetailView({
                           returnDurationSec={finalStopReturnDurationSec}
                           routeId={route.id}
                           canDelete={canDelete}
-                          onRequestMaps={requestMaps}
+                          userPosition={userPosition}
+                          onOpenInMaps={openStopInMaps}
                           onRequestRemove={(item) => {setRemoveError(null); setStopToRemove(item);}}
                           onRequestCancelStop={(stop) => {
                             if (stop.status !== 'pendente') return;
@@ -998,7 +1059,15 @@ export function RouteDetailView({
                           : 'Tempo restante: aguardando GPS'}
                       </p>
                     </div>
-                    <button type="button" onClick={requestFinalDestinationMaps} aria-label="Abrir destino final no Google Maps" className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#baff27]/40 px-3 text-xs font-bold text-[#baff27]"><Navigation className="h-4 w-4" /> Maps</button>
+                    <DirectMapsLink
+                      href={finalDestinationMapsUrl}
+                      fallbackHref={finalDestinationFallback}
+                      onOpen={startFinalReturn}
+                      ariaLabel="Abrir destino final no Google Maps"
+                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#baff27]/40 px-3 text-xs font-bold text-[#baff27]"
+                    >
+                      <Navigation className="h-4 w-4" /> Maps
+                    </DirectMapsLink>
                   </div>
                 </div>
               )}
@@ -1169,11 +1238,6 @@ export function RouteDetailView({
               <button type="button" onClick={() => setMapsConfirmation(null)} className="min-h-[44px] rounded-xl border border-[#394539] px-4 text-sm text-[#e3e8e2]">Cancelar</button>
               <a href={mapsConfirmation.url} onClick={applyMapsConfirmation} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]"><Navigation className="h-4 w-4" />Confirmar e abrir Maps</a>
             </div>
-            {mapsConfirmation.fallbackUrl && (
-              <a href={mapsConfirmation.fallbackUrl} onClick={applyMapsConfirmation} className="mt-3 block text-center text-xs font-medium text-[#9aa59c] underline underline-offset-2">
-                Não tem o app? Abrir no navegador
-              </a>
-            )}
           </div>
         </div>
       )}
