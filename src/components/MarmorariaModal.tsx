@@ -44,6 +44,7 @@ export function MarmorariaModal({
   const [cidade, setCidade] = useState('');
   const [telefone, setTelefone] = useState('');
   const [coordsInput, setCoordsInput] = useState('');
+  const [shareLinkInput, setShareLinkInput] = useState('');
   const [pickedCoords, setPickedCoords] = useState<Coordinates | null>(null);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +70,7 @@ export function MarmorariaModal({
   useEffect(() => {
     if (!isOpen) {stopLocating(); return;}
     setError(null);
+    setShareLinkInput('');
     setLocating(false);
     setLocationAccuracy(null);
     if (initialData) {
@@ -125,7 +127,7 @@ export function MarmorariaModal({
           setCoordsInput(formatCoordinates(data.coordinates.lat, data.coordinates.lng));
         } else {
           setError(
-            'N�o foi poss�vel extrair coordenadas desse link. Cole as coordenadas manualmente (ex.: -26.460149, -48.906940) ou marque no mapa.'
+            'Não foi possível extrair coordenadas desse link. Cole as coordenadas manualmente (ex.: -26.460149, -48.906940) ou marque no mapa.'
           );
         }
       } catch {
@@ -134,6 +136,37 @@ export function MarmorariaModal({
         setResolvingLink(false);
       }
     }
+  };
+
+  const resolveSharedLink = async (value: string) => {
+    const link = value.trim();
+    if (!link || !isGoogleMapsUrl(link)) return;
+    setResolvingLink(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/maps/resolve-link', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url: link}),
+      });
+      const data = (await res.json()) as {coordinates?: Coordinates | null; error?: string};
+      if (data.coordinates && isValidCoordinates(data.coordinates.lat, data.coordinates.lng)) {
+        setPickedCoords(data.coordinates);
+        setCoordsInput(formatCoordinates(data.coordinates.lat, data.coordinates.lng));
+        setShowMapPicker(true);
+      } else {
+        setError('Não foi possível localizar esse link. Confira se ele foi copiado pelo botão Compartilhar do Google Maps.');
+      }
+    } catch {
+      setError('Falha ao ler o link compartilhado. Verifique sua internet e tente novamente.');
+    } finally {
+      setResolvingLink(false);
+    }
+  };
+
+  const handleShareLinkChange = (value: string) => {
+    setShareLinkInput(value);
+    setError(null);
   };
 
   const handleMapPick = (coords: Coordinates) => {
@@ -146,7 +179,7 @@ export function MarmorariaModal({
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
-      setError('Este navegador n�o oferece acesso � localiza��o.');
+      setError('Este navegador não oferece acesso à localização.');
       return;
     }
     stopLocating();
@@ -168,14 +201,14 @@ export function MarmorariaModal({
       (locationError) => {
         stopLocating();
         setError(locationError.code === 1
-          ? 'Permita o acesso � localiza��o no navegador para usar o ponto atual.'
-          : 'N�o foi poss�vel obter sua localiza��o. Tente novamente em um local com sinal de GPS.');
+          ? 'Permita o acesso à localização no navegador para usar o ponto atual.'
+          : 'Não foi possível obter sua localização. Tente novamente em um local com sinal de GPS.');
       },
       {enableHighAccuracy: true, maximumAge: 0, timeout: 20000}
     );
     locationTimerRef.current = setTimeout(() => {
       stopLocating();
-      setError('A localiza��o recebida n�o foi precisa o suficiente. Use o GPS do celular em local aberto ou marque o ponto manualmente no mapa.');
+      setError('A localização recebida não foi precisa o suficiente. Use o GPS do celular em local aberto ou marque o ponto manualmente no mapa.');
     }, 21000);
   };
 
@@ -195,7 +228,7 @@ export function MarmorariaModal({
     }
     if (!parsed || !isValidCoordinates(parsed.lat, parsed.lng)) {
       setError(
-        'Coordenadas inv�lidas. Cole no formato "-26.460149, -48.906940" ou marque um ponto no mapa.'
+        'Coordenadas inválidas. Cole no formato "-26.460149, -48.906940" ou marque um ponto no mapa.'
       );
       return;
     }
@@ -277,7 +310,7 @@ export function MarmorariaModal({
           <div>
             <div className="mb-1.5">
               <label className="text-xs font-semibold text-[#d5dcd4]">
-                Coordenadas (latitude, longitude ou link do Google Maps)
+                Coordenadas (latitude, longitude)
               </label>
             </div>
 
@@ -304,15 +337,50 @@ export function MarmorariaModal({
               className="mt-2 inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#baff27]/50 bg-[#baff27]/10 px-3.5 text-xs font-bold text-[#baff27] hover:bg-[#baff27]/20 disabled:cursor-wait disabled:opacity-60"
             >
               <LocateFixed className={`h-4 w-4 ${locating ? 'animate-pulse' : ''}`} />
-              {locating ? 'Obtendo localiza��o...' : 'Localiza��o atual'}
+              {locating ? 'Obtendo localização...' : 'Localização atual'}
             </button>
             {locationAccuracy !== null && (
               <p role="status" className="mt-1.5 text-[11px] text-[#9aa59c]">
-                {locating ? `Aguardando GPS mais preciso (leitura atual: �${locationAccuracy} m)...` : `Coordenadas do GPS (precis�o aproximada: �${locationAccuracy} m). Confira o ponto antes de salvar.`}
+                {locating ? `Aguardando GPS mais preciso (leitura atual: ±${locationAccuracy} m)...` : `Coordenadas do GPS (precisão aproximada: ±${locationAccuracy} m). Confira o ponto antes de salvar.`}
               </p>
             )}
             <p className="mt-1 text-[11px] text-[#7b877e]">
-              Aceita latitude e longitude coladas juntas ou links longos/curtos do Google Maps.
+              Aceita latitude e longitude coladas juntas.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-[#d5dcd4]">
+              Link de compartilhamento
+            </label>
+            <div className="relative">
+              <input
+                type="url"
+                inputMode="url"
+                value={shareLinkInput}
+                onChange={(e) => handleShareLinkChange(e.target.value)}
+                onBlur={() => void resolveSharedLink(shareLinkInput)}
+                onPaste={(e) => {
+                  const value = e.clipboardData.getData('text').trim();
+                  if (isGoogleMapsUrl(value)) {
+                    e.preventDefault();
+                    setShareLinkInput(value);
+                    void resolveSharedLink(value);
+                  }
+                }}
+                placeholder="Cole aqui o link compartilhado do Google Maps"
+                className="min-h-[46px] w-full rounded-xl border border-[#29332a] bg-[#0d100e] pr-10 pl-3.5 text-xs text-[#f3f5f2] placeholder-[#5d6b5f] focus:border-[#baff27] focus:outline-none sm:text-sm"
+              />
+              {resolvingLink ? (
+                <Link2 className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-pulse text-[#baff27]" />
+              ) : shareLinkInput && pickedCoords && !error ? (
+                <Check className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-[#baff27]" />
+              ) : (
+                <Link2 className="absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-[#7b877e]" />
+              )}
+            </div>
+            <p className="mt-1 text-[11px] text-[#7b877e]">
+              Use o botão Compartilhar do Google Maps. As coordenadas serão preenchidas automaticamente.
             </p>
           </div>
 
@@ -350,7 +418,7 @@ export function MarmorariaModal({
               disabled={resolvingLink}
               className="min-h-[46px] rounded-xl bg-[#baff27] px-5 text-sm font-bold text-[#0d100e] disabled:opacity-50"
             >
-              {initialData ? 'Salvar altera��es' : 'Salvar marmoraria'}
+              {initialData ? 'Salvar alterações' : 'Salvar marmoraria'}
             </button>
           </div>
         </form>
@@ -358,4 +426,3 @@ export function MarmorariaModal({
     </div>
   );
 }
-
