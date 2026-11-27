@@ -210,6 +210,41 @@ export default function App() {
     if (isOnline && userId && authReady) void syncOfflineData(userId);
   }, [isOnline, userId, authReady, syncOfflineData]);
 
+  useEffect(() => {
+    if (!supabase || !userId) return;
+    let refreshTimer: number | null = null;
+
+    const requestRefresh = () => {
+      if (!navigator.onLine) return;
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = null;
+        if (syncingRef.current) syncAgainRef.current = true;
+        else void syncOfflineData(userId);
+      }, 700);
+    };
+
+    const channel = supabase
+      .channel(`app-data-${userId}`)
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'marmorarias'}, requestRefresh)
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'routes'}, requestRefresh)
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'route_stops'}, requestRefresh)
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'whatsapp_templates'}, requestRefresh)
+      .on('postgres_changes', {event: '*', schema: 'public', table: 'app_settings'}, requestRefresh)
+      .subscribe();
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') requestRefresh();
+    };
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+
+    return () => {
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      void supabase.removeChannel(channel);
+    };
+  }, [userId, syncOfflineData]);
+
   const commitChange = useCallback(async (nextData: AppData, change: PendingChange) => {
     if (!userId || !profile) throw new Error('Entre novamente para salvar alterações.');
     const count = queueChange(userId, profile, nextData, change);
