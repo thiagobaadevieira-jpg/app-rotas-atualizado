@@ -349,7 +349,7 @@ export default function App() {
   const home = remote?.home || null;
   const routeDistancesEnabled = activeTab === 'relatorios' || (activeTab === 'rotas' && !selectedRouteId);
   const {distances: routeDistances, loading: distancesLoading} = useRouteDistances(
-    routes, company, routeDistancesEnabled
+    routes, company, routeDistancesEnabled, userPosition
   );
   const offlinePendingChanges = useMemo(
     () => userId ? readOffline(userId)?.pending || [] : [],

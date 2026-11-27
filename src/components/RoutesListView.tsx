@@ -96,12 +96,14 @@ export function RoutesListView({
                       </p>
                     )}
                   </div>
-                  <div className="shrink-0 border-l border-[#2b352d] pl-3 text-right">
-                    <p className="text-[9px] font-semibold uppercase tracking-wider text-[#7f8b81]">Tempo total</p>
-                    <p className="mt-1 whitespace-nowrap text-lg font-extrabold leading-none text-[#baff27] tabular-nums">
-                      {metrics?.durationSec ? `~${formatDurationPt(metrics.durationSec)}` : '...'}
-                    </p>
-                  </div>
+                  {route.status !== 'finalizada' && !completed && route.stops.some((stop) => stop.status === 'pendente') && (
+                    <div className="shrink-0 border-l border-[#2b352d] pl-3 text-right">
+                      <p className="text-[9px] font-semibold uppercase tracking-wider text-[#7f8b81]">Tempo restante</p>
+                      <p className="mt-1 whitespace-nowrap text-lg font-extrabold leading-none text-[#baff27] tabular-nums">
+                        {metrics?.remainingDurationSec ? formatDurationPt(metrics.remainingDurationSec) : '...'}
+                      </p>
+                    </div>
+                  )}
                 </button>
               </li>
             );
