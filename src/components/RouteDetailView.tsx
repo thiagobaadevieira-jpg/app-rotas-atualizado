@@ -28,7 +28,6 @@ import type {CompanyLocation, Coordinates, FinalDestinationType, Marmoraria, Rou
 import {
   buildChunkedGoogleMapsRouteLinks,
   buildSingleStopGoogleMapsUrl,
-  buildSingleStopGoogleMapsWebUrl,
   fetchRouteLegEstimates,
   formatDistancePt,
   formatDurationPt,
@@ -72,39 +71,20 @@ interface IncomingLegInfo {
   remainingDurationSec: number;
 }
 
-function browserMapsFallback(
-  url: string,
-  stop: {lat: number; lng: number},
-  origin?: Coordinates | null,
-): string | undefined {
-  return url.startsWith('comgooglemaps:') ? buildSingleStopGoogleMapsWebUrl(stop, origin) : undefined;
-}
-
 function DirectMapsLink({
   href,
-  fallbackHref,
   onOpen,
   className,
   ariaLabel,
   children,
 }: {
   href: string;
-  fallbackHref?: string;
   onOpen: () => void;
   className: string;
   ariaLabel?: string;
   children: ReactNode;
 }) {
-  return (
-    <div className="space-y-1">
-      <a href={href} onClick={onOpen} aria-label={ariaLabel} className={className}>{children}</a>
-      {fallbackHref && (
-        <a href={fallbackHref} onClick={onOpen} className="block text-center text-[10px] font-medium leading-tight text-[#9aa59c] underline underline-offset-2">
-          Abrir no navegador
-        </a>
-      )}
-    </div>
-  );
+  return <a href={href} onClick={onOpen} aria-label={ariaLabel} className={className}>{children}</a>;
 }
 
 interface DraggableStopItemProps {
@@ -158,7 +138,6 @@ function DraggableStopItem({
 }: DraggableStopItemProps) {
   const dragControls = useDragControls();
   const mapsHref = buildSingleStopGoogleMapsUrl(stop, userPosition);
-  const mapsFallback = browserMapsFallback(mapsHref, stop, userPosition);
 
   return (
     <Reorder.Item
@@ -245,7 +224,6 @@ function DraggableStopItem({
         <div className="grid min-w-0 grid-cols-2 gap-1.5">
           <DirectMapsLink
             href={mapsHref}
-            fallbackHref={mapsFallback}
             onOpen={() => onOpenInMaps(stop)}
             ariaLabel={`Abrir ${stop.nome} no Google Maps`}
             className="inline-flex min-h-[40px] w-full min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-[#344038] bg-[#101411] px-1 text-[10px] font-medium text-[#e3e8e2] hover:border-[#ff873f]/50 hover:text-[#ff873f] sm:text-xs"
@@ -565,9 +543,6 @@ export function RouteDetailView({
       returnDurationSec,
     );
   };
-  const finalDestinationFallback = finalDestination
-    ? browserMapsFallback(finalDestinationMapsUrl, finalDestination, userPosition)
-    : undefined;
   const applyMapsConfirmation = () => {
     if (!mapsConfirmation?.stopId) return;
     onSelectDestination(route.id, mapsConfirmation.stopId, true);
@@ -576,9 +551,6 @@ export function RouteDetailView({
   const isIOS = isIOSDevice();
   const nextPendingStop = activeDest || orderedPending[0] || null;
   const nextPendingMapsUrl = nextPendingStop ? buildSingleStopGoogleMapsUrl(nextPendingStop, userPosition) : '';
-  const nextPendingMapsFallback = nextPendingStop
-    ? browserMapsFallback(nextPendingMapsUrl, nextPendingStop, userPosition)
-    : undefined;
   const showFullRouteOption = isIOS && (orderedPending.length > 1 || Boolean(finalDestination));
 
   return (
@@ -831,11 +803,6 @@ export function RouteDetailView({
               <ExternalLink className="h-3 w-3" />
             </a>
             <p className="text-center text-[11px] text-[#9aa59c]">Próxima parada: {nextPendingStop.nome}</p>
-            {nextPendingMapsFallback && (
-              <a href={nextPendingMapsFallback} onClick={() => openStopInMaps(nextPendingStop)} className="block text-center text-[11px] font-medium text-[#9aa59c] underline underline-offset-2">
-                Abrir no navegador
-              </a>
-            )}
             {showFullRouteOption && (
               <div className="space-y-2 border-t border-[#2b352d] pt-3">
                 <p className="text-[11px] leading-relaxed text-[#9aa59c]">
@@ -863,7 +830,6 @@ export function RouteDetailView({
         ) : mapsSegments.length === 1 && !isOnline && nextPendingStop ? (
           <DirectMapsLink
             href={nextPendingMapsUrl}
-            fallbackHref={nextPendingMapsFallback}
             onOpen={() => openStopInMaps(nextPendingStop)}
             className="flex min-h-[46px] w-full items-center justify-center gap-2 rounded-lg bg-[#baff27] px-4 py-2.5 text-xs font-bold text-[#0d100e] transition-transform active:scale-[0.98]"
           >
@@ -896,7 +862,6 @@ export function RouteDetailView({
                   <DirectMapsLink
                     key={seg.partIndex}
                     href={href}
-                    fallbackHref={browserMapsFallback(href, targetStop, userPosition)}
                     onOpen={() => openStopInMaps(targetStop)}
                     className="flex min-h-[44px] items-center justify-between rounded-lg bg-[#baff27] px-4 py-2 text-xs font-bold text-[#0d100e] transition-transform active:scale-[0.98]"
                   >
@@ -1061,7 +1026,6 @@ export function RouteDetailView({
                     </div>
                     <DirectMapsLink
                       href={finalDestinationMapsUrl}
-                      fallbackHref={finalDestinationFallback}
                       onOpen={startFinalReturn}
                       ariaLabel="Abrir destino final no Google Maps"
                       className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-[#baff27]/40 px-3 text-xs font-bold text-[#baff27]"
