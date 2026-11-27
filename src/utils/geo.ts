@@ -97,33 +97,31 @@ export function buildWhatsAppUrl(phone: string, message: string): string {
   return `https://wa.me/${normalized}?text=${encodedMsg}`;
 }
 
-function isOfflineIOS(): boolean {
-  const isIOS = typeof navigator !== 'undefined' && (
-    /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  );
-  return typeof navigator !== 'undefined' && !navigator.onLine && isIOS;
+/** iPhone, iPad and iPod, including iPadOS which reports itself as a Mac. */
+export function isIOSDevice(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  return /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
-export function buildSingleStopGoogleMapsUrl(
+/**
+ * Opens turn-by-turn in the installed Google Maps app.
+ * saddr is omitted on purpose: Maps then starts from the device GPS and can
+ * follow a map that was downloaded for offline use.
+ * https://developers.google.com/maps/documentation/urls/ios-urlscheme
+ */
+export function buildNativeIOSGoogleMapsUrl(stop: {lat: number; lng: number}): string {
+  return `comgooglemaps://?daddr=${stop.lat},${stop.lng}&directionsmode=driving`;
+}
+
+/** Browser / universal-link directions. Needs a network to resolve the route. */
+export function buildSingleStopGoogleMapsWebUrl(
   stop: {lat: number; lng: number},
   origin?: Coordinates | null
 ): string {
-  const destination = `${stop.lat},${stop.lng}`;
-  if (isOfflineIOS()) {
-    const nativeParams = new URLSearchParams({
-      daddr: destination,
-      directionsmode: 'driving',
-    });
-    if (origin && isValidCoordinates(origin.lat, origin.lng)) {
-      nativeParams.set('saddr', `${origin.lat},${origin.lng}`);
-    }
-    return `comgooglemaps://?${nativeParams.toString()}`;
-  }
-
   const params = new URLSearchParams({
     api: '1',
-    destination,
+    destination: `${stop.lat},${stop.lng}`,
     travelmode: 'driving',
     dir_action: 'navigate',
   });
@@ -131,6 +129,17 @@ export function buildSingleStopGoogleMapsUrl(
     params.set('origin', `${origin.lat},${origin.lng}`);
   }
   return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+export function buildSingleStopGoogleMapsUrl(
+  stop: {lat: number; lng: number},
+  origin?: Coordinates | null
+): string {
+  // navigator.onLine stays true on iPhone when the signal is too weak to load
+  // a route. The https directions link then opens Google Maps and sits on
+  // "Carregando...". The native scheme always hands the coordinates to the app.
+  if (isIOSDevice()) return buildNativeIOSGoogleMapsUrl(stop);
+  return buildSingleStopGoogleMapsWebUrl(stop, origin);
 }
 
 export interface GoogleMapsRouteSegment {

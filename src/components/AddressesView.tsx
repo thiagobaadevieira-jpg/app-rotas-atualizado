@@ -1,7 +1,7 @@
 import {Edit3, MapPin, MessageCircle, Plus, Search, Share2, Trash2} from 'lucide-react';
 import {useMemo, useState} from 'react';
 import type {Marmoraria} from '../types.ts';
-import {buildSingleStopGoogleMapsUrl} from '../utils/geo.ts';
+import {buildSingleStopGoogleMapsUrl, buildSingleStopGoogleMapsWebUrl} from '../utils/geo.ts';
 
 interface AddressesViewProps {
   marmorarias: Marmoraria[];
@@ -30,6 +30,10 @@ export function AddressesView({
   const [deleteTarget, setDeleteTarget] = useState<Marmoraria | null>(null);
   const [mapsTarget, setMapsTarget] = useState<Marmoraria | null>(null);
   const [shareNotice, setShareNotice] = useState<string | null>(null);
+  const mapsTargetUrl = mapsTarget ? buildSingleStopGoogleMapsUrl(mapsTarget) : '';
+  const mapsTargetFallback = mapsTarget && mapsTargetUrl.startsWith('comgooglemaps:')
+    ? buildSingleStopGoogleMapsWebUrl(mapsTarget)
+    : '';
 
   const shareAddress = async (m: Marmoraria) => {
     const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${m.lat},${m.lng}`)}`;
@@ -177,8 +181,13 @@ export function AddressesView({
             <p className="mt-2 text-sm text-[#bdc7bd]">Ao confirmar, <strong className="text-[#baff27]">{mapsTarget.nome}</strong> será marcado como destino atual e o Google Maps será aberto.</p>
             <div className="mt-5 flex justify-end gap-2">
               <button type="button" onClick={() => setMapsTarget(null)} className="min-h-[44px] rounded-xl border border-[#394539] px-4 text-sm text-[#e3e8e2]">Cancelar</button>
-              <a href={buildSingleStopGoogleMapsUrl(mapsTarget)} onClick={() => {onNavigateMaps(mapsTarget); setMapsTarget(null);}} className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]">Confirmar e abrir Maps</a>
+              <a href={mapsTargetUrl} onClick={() => {onNavigateMaps(mapsTarget); setMapsTarget(null);}} className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#ff873f] px-4 text-sm font-bold text-[#0d100e]">Confirmar e abrir Maps</a>
             </div>
+            {mapsTargetFallback && (
+              <a href={mapsTargetFallback} onClick={() => {onNavigateMaps(mapsTarget); setMapsTarget(null);}} className="mt-3 block text-center text-xs font-medium text-[#9aa59c] underline underline-offset-2">
+                Não tem o app? Abrir no navegador
+              </a>
+            )}
           </div>
         </div>
       )}
