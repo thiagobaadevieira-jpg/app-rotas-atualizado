@@ -1,0 +1,9 @@
+# Só a função de entrada. Não rode `supabase config push` com este arquivo:
+# ele não descreve o resto do projeto e um push reporia configuração com o padrão.
+#
+# webhook-config continua com a verificação de JWT ligada (padrão da plataforma).
+
+project_id = "zpvdavopwjlenlvdxumh"
+
+[functions.montar-rota]
+verify_jwt = false
